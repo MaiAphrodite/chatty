@@ -76,12 +76,11 @@ jobs:
             
             # Create or update docker-compose.yml on the server
             cat > docker-compose.yml << 'EOF'
-            version: "3.8"
             services:
               api:
                 image: ghcr.io/maiaphrodite/chatty:latest
-                command: bun run start
                 ports:
+                  - "3000:3000"
                   - "4000:4000"
                 environment:
                   - DATABASE_URL=${DATABASE_URL}
