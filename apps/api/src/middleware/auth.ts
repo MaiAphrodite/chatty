@@ -18,10 +18,14 @@ export const authGuard = new Elysia({ name: "auth-guard" })
     const token = cookie.auth?.value;
     if (!token) return { userId: null as string | null };
 
-    const payload = await jwtInstance.verify(token);
-    if (!payload?.sub) return { userId: null as string | null };
+    const payload = await jwtInstance.verify(token as string);
+    if (!payload) return { userId: null as string | null };
 
-    return { userId: payload.sub as string };
+    // @ts-ignore - Elysia JWT payload type doesn't natively include custom claims like 'sub' without explicit Schema
+    const sub = (payload as Record<string, any>).sub;
+    if (!sub) return { userId: null as string | null };
+
+    return { userId: sub as string };
   })
   .onBeforeHandle({ as: "scoped" }, ({ userId, set }) => {
     if (!userId) {
