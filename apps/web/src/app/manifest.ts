@@ -1,0 +1,22 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Chatty",
+    short_name: "Chatty",
+    description: "AI Roleplay Chat",
+    start_url: "/",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#0a0a12",
+    theme_color: "#0a0a12",
+    icons: [
+      {
+        src: "/icons/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any maskable",
+      },
+    ],
+  };
+}

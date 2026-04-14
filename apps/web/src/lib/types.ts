@@ -1,0 +1,32 @@
+export type User = {
+  id: string;
+  username: string;
+  createdAt?: string;
+};
+
+export type Character = {
+  id: string;
+  name: string;
+  description: string;
+  avatarUrl: string | null;
+  createdAt: string;
+};
+
+export type Conversation = {
+  id: string;
+  userId: string;
+  characterId: string;
+  title: string | null;
+  createdAt: string;
+  updatedAt: string;
+  character?: Pick<Character, "id" | "name" | "avatarUrl">;
+};
+
+export type Message = {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt: string;
+  isStreaming?: boolean;
+};

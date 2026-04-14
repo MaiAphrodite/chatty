@@ -1,0 +1,28 @@
+{
+  "pages": {
+    "/chat/page": [
+      "static/chunks/node_modules__bun_3e88b544._.js",
+      "static/chunks/apps_web_src_20722eba._.js",
+      "static/chunks/apps_web_src_app_globals_ea8a3ee7.css",
+      "static/chunks/apps_web_src_app_layout_tsx_76137484._.js",
+      "static/chunks/67bae_next_dist_client_components_builtin_global-error_aab6eb43.js",
+      "static/chunks/_59c39220._.js",
+      "static/chunks/apps_web_src_app_chat_layout_tsx_aab6eb43._.js",
+      "static/chunks/7e734_micromark_dev_lib_9bb1e88f._.js",
+      "static/chunks/2bec4_micromark-core-commonmark_dev_lib_f5e9f4d5._.js",
+      "static/chunks/node_modules__bun_f9125039._.js",
+      "static/chunks/apps_web_src_95b95a49._.js",
+      "static/chunks/apps_web_src_578bfc1a._.css",
+      "static/chunks/apps_web_src_app_chat_page_tsx_39a71d59._.js",
+      "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_46bb09f7._.js",
+      "static/chunks/67bae_next_dist_compiled_react-dom_8b790ff4._.js",
+      "static/chunks/67bae_next_dist_compiled_next-devtools_index_9305ba6e.js",
+      "static/chunks/67bae_next_dist_compiled_4cf6d8af._.js",
+      "static/chunks/67bae_next_dist_client_997168a1._.js",
+      "static/chunks/67bae_next_dist_96e089d0._.js",
+      "static/chunks/e1c07_@swc_helpers_cjs_7b3529ba._.js",
+      "static/chunks/apps_web_a0ff3932._.js",
+      "static/chunks/turbopack-apps_web_1aaa0746._.js"
+    ]
+  }
+}

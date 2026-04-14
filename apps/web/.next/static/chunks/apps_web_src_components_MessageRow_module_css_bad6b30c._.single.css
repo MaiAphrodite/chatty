@@ -1,0 +1,215 @@
+/* [project]/apps/web/src/components/MessageRow.module.css [app-client] (css) */
+.MessageRow-module__USEg-q__row {
+  transition: background var(--transition-fast);
+  padding: 2px 16px;
+  display: flex;
+  position: relative;
+}
+
+.MessageRow-module__USEg-q__row:hover {
+  background: rgba(255, 255, 255, .02);
+}
+
+.MessageRow-module__USEg-q__gutter {
+  justify-content: center;
+  width: 52px;
+  min-width: 52px;
+  padding-top: 4px;
+  display: flex;
+}
+
+.MessageRow-module__USEg-q__gutterCompact {
+  justify-content: center;
+  align-items: center;
+  width: 52px;
+  min-width: 52px;
+  display: flex;
+}
+
+.MessageRow-module__USEg-q__hoverTime {
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  font-size: .65rem;
+}
+
+.MessageRow-module__USEg-q__row:hover .MessageRow-module__USEg-q__hoverTime {
+  opacity: 1;
+}
+
+.MessageRow-module__USEg-q__avatar {
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+}
+
+.MessageRow-module__USEg-q__avatarFallback {
+  background: var(--accent-primary-dim);
+  color: #fff;
+  justify-content: center;
+  align-items: center;
+  font-size: .95rem;
+  font-weight: 600;
+  display: flex;
+}
+
+.MessageRow-module__USEg-q__body {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.MessageRow-module__USEg-q__header {
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 1px;
+  display: flex;
+}
+
+.MessageRow-module__USEg-q__nameAssistant {
+  color: var(--accent-secondary);
+  font-size: .925rem;
+  font-weight: 600;
+}
+
+.MessageRow-module__USEg-q__nameUser {
+  color: #e8e6f0;
+  font-size: .925rem;
+  font-weight: 600;
+}
+
+.MessageRow-module__USEg-q__timestamp {
+  color: var(--text-muted);
+  font-size: .7rem;
+  font-weight: 400;
+}
+
+.MessageRow-module__USEg-q__content {
+  color: var(--text-primary);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-size: .925rem;
+  line-height: 1.45;
+}
+
+.MessageRow-module__USEg-q__content p {
+  margin: 0 0 4px;
+}
+
+.MessageRow-module__USEg-q__content p:last-child {
+  margin-bottom: 0;
+}
+
+.MessageRow-module__USEg-q__content em {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.MessageRow-module__USEg-q__content strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.MessageRow-module__USEg-q__content code {
+  border: 1px solid var(--border-subtle);
+  background: rgba(0, 0, 0, .3);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: .85em;
+}
+
+.MessageRow-module__USEg-q__content pre {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, .35);
+  margin: 6px 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+
+.MessageRow-module__USEg-q__content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: .85rem;
+}
+
+.MessageRow-module__USEg-q__content a {
+  color: var(--accent-secondary);
+  text-decoration: none;
+}
+
+.MessageRow-module__USEg-q__content a:hover {
+  text-decoration: underline;
+}
+
+.MessageRow-module__USEg-q__content blockquote {
+  border-left: 3px solid var(--accent-primary-dim);
+  color: var(--text-secondary);
+  margin: 4px 0;
+  padding-left: 12px;
+}
+
+.MessageRow-module__USEg-q__content ul, .MessageRow-module__USEg-q__content ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.MessageRow-module__USEg-q__cursor {
+  background: var(--accent-primary);
+  vertical-align: text-bottom;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  animation: .8s step-end infinite MessageRow-module__USEg-q__blink;
+  display: inline-block;
+}
+
+.MessageRow-module__USEg-q__typing {
+  gap: 4px;
+  padding: 4px 0;
+  display: inline-flex;
+}
+
+.MessageRow-module__USEg-q__typing span {
+  background: var(--text-muted);
+  border-radius: 50%;
+  width: 7px;
+  height: 7px;
+  animation: 1.2s ease-in-out infinite MessageRow-module__USEg-q__typingBounce;
+}
+
+.MessageRow-module__USEg-q__typing span:nth-child(2) {
+  animation-delay: .15s;
+}
+
+.MessageRow-module__USEg-q__typing span:nth-child(3) {
+  animation-delay: .3s;
+}
+
+@keyframes MessageRow-module__USEg-q__blink {
+  0%, 100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes MessageRow-module__USEg-q__typingBounce {
+  0%, 60%, 100% {
+    opacity: .4;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-5px);
+  }
+}
+
+/*# sourceMappingURL=apps_web_src_components_MessageRow_module_css_bad6b30c._.single.css.map*/

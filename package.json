@@ -1,0 +1,15 @@
+{
+  "name": "chatty",
+  "private": true,
+  "workspaces": ["apps/web", "apps/api"],
+  "scripts": {
+    "dev": "bun run --filter '*' dev",
+    "dev:web": "bun run --filter web dev",
+    "dev:api": "bun run --filter api dev",
+    "build": "bun run --filter web build",
+    "db:generate": "cd apps/api && bun run db:generate",
+    "db:migrate": "cd apps/api && bun run db:migrate",
+    "db:push": "cd apps/api && bun run db:push",
+    "db:seed": "cd apps/api && bun run db:seed"
+  }
+}

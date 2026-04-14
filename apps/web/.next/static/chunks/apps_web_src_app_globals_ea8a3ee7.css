@@ -1,0 +1,163 @@
+@import "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap";
+/* [project]/apps/web/src/app/globals.css [app-client] (css) */
+*, :before, :after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg-primary: #0a0a12;
+  --bg-secondary: #12121c;
+  --bg-surface: #1a1a28;
+  --bg-elevated: #223;
+  --bg-input: rgba(22, 22, 34, .5);
+  --accent-primary: #a78bfa;
+  --accent-primary-dim: #7c5fd6;
+  --accent-secondary: #c4b5fd;
+  --accent-glow: rgba(167, 139, 250, .15);
+  --text-primary: #eae8f4;
+  --text-secondary: #8b89a0;
+  --text-muted: #5a586e;
+  --text-inverse: #0a0a12;
+  --border-subtle: rgba(255, 255, 255, .06);
+  --border-medium: rgba(255, 255, 255, .1);
+  --bubble-user: linear-gradient(135deg, #7c3aed, #6d28d9);
+  --bubble-assistant: #1e1e2e;
+  --error: #f87171;
+  --success: #34d399;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, .4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, .5);
+  --shadow-glow: 0 0 20px var(--accent-glow);
+  --transition-fast: .15s ease;
+  --transition-base: .25s ease;
+  --transition-slow: .4s cubic-bezier(.16, 1, .3, 1);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --header-height: 60px;
+  --input-height: 64px;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  --lightningcss-light: ;
+  --lightningcss-dark: initial;
+  color-scheme: dark;
+  font-size: 16px;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+a {
+  color: var(--accent-secondary);
+  transition: color var(--transition-fast);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-primary);
+}
+
+input, textarea, button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  outline: none;
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: none;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: var(--radius-full);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: .4;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-in {
+  animation: fadeInUp var(--transition-slow) both;
+}
+
+.animate-fade {
+  animation: fadeIn var(--transition-base) both;
+}
+
+/*# sourceMappingURL=apps_web_src_app_globals_ea8a3ee7.css.map*/

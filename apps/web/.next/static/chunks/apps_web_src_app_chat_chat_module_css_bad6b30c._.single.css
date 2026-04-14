@@ -1,0 +1,101 @@
+/* [project]/apps/web/src/app/chat/chat.module.css [app-client] (css) */
+.chat-module__s_Dpra__container {
+  background: var(--bg-secondary);
+  flex-direction: column;
+  max-width: 100%;
+  height: 100dvh;
+  display: flex;
+  overflow: hidden;
+}
+
+.chat-module__s_Dpra__messages {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  flex-direction: column;
+  flex: 1;
+  padding: 8px 0;
+  display: flex;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.chat-module__s_Dpra__loadingContainer {
+  background: var(--bg-secondary);
+  justify-content: center;
+  align-items: center;
+  height: 100dvh;
+  display: flex;
+}
+
+.chat-module__s_Dpra__loadingDots {
+  gap: 6px;
+  display: flex;
+}
+
+.chat-module__s_Dpra__loadingDots span {
+  background: var(--accent-primary);
+  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  animation: 1.2s ease-in-out infinite chat-module__s_Dpra__pulse;
+}
+
+.chat-module__s_Dpra__loadingDots span:nth-child(2) {
+  animation-delay: .15s;
+}
+
+.chat-module__s_Dpra__loadingDots span:nth-child(3) {
+  animation-delay: .3s;
+}
+
+.chat-module__s_Dpra__empty {
+  text-align: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding: 32px 24px 24px;
+  display: flex;
+}
+
+.chat-module__s_Dpra__emptyAvatar {
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 8px;
+}
+
+.chat-module__s_Dpra__emptyTitle {
+  color: var(--text-primary);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.chat-module__s_Dpra__emptySubtitle {
+  color: var(--text-secondary);
+  max-width: 300px;
+  font-size: .875rem;
+  line-height: 1.45;
+}
+
+.chat-module__s_Dpra__emptyHint {
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
+  width: 100%;
+  max-width: 400px;
+  margin-top: 12px;
+  padding-top: 12px;
+  font-size: .8rem;
+}
+
+.chat-module__s_Dpra__errorBar {
+  color: var(--error);
+  text-align: center;
+  background: rgba(248, 113, 113, .08);
+  border-top: 1px solid rgba(248, 113, 113, .15);
+  padding: 8px 16px;
+  font-size: .8rem;
+}
+
+/*# sourceMappingURL=apps_web_src_app_chat_chat_module_css_bad6b30c._.single.css.map*/

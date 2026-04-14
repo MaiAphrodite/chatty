@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/apps/web/src/components/CharacterHeader.module.css"],"sourcesContent":[".header {\n  height: var(--header-height);\n  background: var(--bg-primary);\n  border-bottom: 1px solid var(--border-subtle);\n  display: flex;\n  align-items: center;\n  padding: 0 16px;\n  padding-top: var(--safe-top);\n  position: sticky;\n  top: 0;\n  z-index: 10;\n}\n\n.inner {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n  width: 100%;\n}\n\n.atSign {\n  font-size: 1.15rem;\n  font-weight: 700;\n  color: var(--text-muted);\n}\n\n.name {\n  font-size: 1rem;\n  font-weight: 700;\n  color: var(--text-primary);\n}\n\n.statusDot {\n  width: 8px;\n  height: 8px;\n  border-radius: 50%;\n  background: var(--success);\n  margin-left: 6px;\n  flex-shrink: 0;\n}\n"],"names":[],"mappings":"AAAA;;;;;;;;;;;;;;AAaA;;;;;;;AAOA;;;;;;AAMA;;;;;;AAMA"}}]
+}

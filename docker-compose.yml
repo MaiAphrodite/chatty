@@ -1,0 +1,14 @@
+services:
+  chatty:
+    build: .
+    ports:
+      - "3000:3000"  # Next.js
+      - "4000:4000"  # Elysia API
+      - "5432:5432"  # PostgreSQL
+    environment:
+      - DATABASE_URL=postgres://chatty:chatty@localhost:5432/chatty
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+volumes:
+  pgdata:

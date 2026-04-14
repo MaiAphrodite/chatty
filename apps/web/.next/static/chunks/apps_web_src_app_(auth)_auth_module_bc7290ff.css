@@ -1,0 +1,42 @@
+/* [project]/apps/web/src/app/(auth)/auth.module.css [app-client] (css) */
+.auth-module__9lQH2W__container {
+  background: radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, .08) 0%, transparent 60%), var(--bg-primary);
+  justify-content: center;
+  align-items: center;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  display: flex;
+}
+
+.auth-module__9lQH2W__card {
+  width: 100%;
+  max-width: 420px;
+  animation: auth-module__9lQH2W__fadeInUp var(--transition-slow) both;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  display: flex;
+}
+
+.auth-module__9lQH2W__logo {
+  font-size: 3rem;
+  line-height: 1;
+  animation: .6s both auth-module__9lQH2W__fadeIn;
+}
+
+.auth-module__9lQH2W__link {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: .875rem;
+}
+
+.auth-module__9lQH2W__link a {
+  color: var(--accent-secondary);
+  font-weight: 500;
+}
+
+.auth-module__9lQH2W__link a:hover {
+  text-decoration: underline;
+}
+
+/*# sourceMappingURL=apps_web_src_app_%28auth%29_auth_module_bc7290ff.css.map*/

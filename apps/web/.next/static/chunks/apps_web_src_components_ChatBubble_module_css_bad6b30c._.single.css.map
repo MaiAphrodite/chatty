@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/apps/web/src/components/ChatBubble.module.css"],"sourcesContent":[".row {\n  display: flex;\n  padding: 2px 16px;\n}\n\n.userRow {\n  justify-content: flex-end;\n}\n\n.assistantRow {\n  justify-content: flex-start;\n}\n\n.bubble {\n  max-width: 82%;\n  padding: 10px 14px;\n  border-radius: var(--radius-lg);\n  font-size: 0.935rem;\n  line-height: 1.55;\n  word-wrap: break-word;\n  overflow-wrap: break-word;\n  position: relative;\n}\n\n.userBubble {\n  background: var(--bubble-user);\n  color: #fff;\n  border-bottom-right-radius: 6px;\n}\n\n.assistantBubble {\n  background: var(--bubble-assistant);\n  color: var(--text-primary);\n  border-bottom-left-radius: 6px;\n  border: 1px solid var(--border-subtle);\n}\n\n.content {\n  white-space: pre-wrap;\n}\n\n.cursor {\n  display: inline-block;\n  width: 2px;\n  height: 1em;\n  background: var(--accent-primary);\n  margin-left: 2px;\n  vertical-align: text-bottom;\n  animation: blink 0.8s step-end infinite;\n}\n\n@keyframes blink {\n  0%, 100% { opacity: 1; }\n  50% { opacity: 0; }\n}\n"],"names":[],"mappings":"AAAA;;;;;AAKA;;;;AAIA;;;;AAIA;;;;;;;;;;;AAWA;;;;;;AAMA;;;;;;;AAOA;;;;AAIA;;;;;;;;;;AAUA"}}]
+}
