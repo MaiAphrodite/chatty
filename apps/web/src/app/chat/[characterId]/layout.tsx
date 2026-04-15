@@ -1,26 +1,22 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "../../contexts/AuthContext";
-import { Sidebar } from "../../components/Sidebar";
+import { useRouter, useParams } from "next/navigation";
+import { useAuth } from "../../../contexts/AuthContext";
+import { Sidebar } from "../../../components/Sidebar/Sidebar";
 
-export default function ChatLayout({
+export default function ChatCharacterLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
+  const params = useParams();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace("/login");
-    } else if (user && pathname === "/chat") {
-      router.replace("/home");
-    }
-  }, [user, isLoading, router, pathname]);
+    if (!isLoading && !user) router.replace("/login");
+  }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -30,6 +26,7 @@ export default function ChatLayout({
           alignItems: "center",
           justifyContent: "center",
           height: "100dvh",
+          background: "var(--bg-secondary)",
         }}
       >
         <div

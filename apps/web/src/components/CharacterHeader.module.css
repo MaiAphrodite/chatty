@@ -38,3 +38,10 @@
   margin-left: 6px;
   flex-shrink: 0;
 }
+
+.rightSection {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

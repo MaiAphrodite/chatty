@@ -13,14 +13,14 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isLoading && user) router.replace("/chat");
+    if (!isLoading && user) router.replace("/home");
   }, [user, isLoading, router]);
 
   async function handleRegister(username: string, password: string) {
     setError(null);
     try {
       await register(username, password);
-      router.replace("/chat");
+      router.replace("/home");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     }

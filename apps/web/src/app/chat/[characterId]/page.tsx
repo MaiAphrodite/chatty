@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useAuth } from "../../contexts/AuthContext";
-import { useChat } from "../../hooks/useChat";
-import { CharacterHeader } from "../../components/CharacterHeader";
-import { MessageRow } from "../../components/MessageRow";
-import { ChatInput } from "../../components/ChatInput";
-import type { Message } from "../../lib/types";
-import styles from "./chat.module.css";
+import { useParams, useSearchParams } from "next/navigation";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useChat } from "../../../hooks/useChat";
+import { CharacterHeader } from "../../../components/CharacterHeader";
+import { CharacterMenu } from "../../../components/CharacterMenu";
+import { MessageRow } from "../../../components/MessageRow";
+import { ChatInput } from "../../../components/ChatInput";
+import type { Message } from "../../../lib/types";
+import styles from "../chat.module.css";
 
 function shouldGroup(messages: Message[], index: number): boolean {
   if (index === 0) return false;
@@ -19,9 +21,18 @@ function shouldGroup(messages: Message[], index: number): boolean {
   return gap < 5 * 60 * 1000;
 }
 
-export default function ChatPage() {
+export default function ChatCharacterPage() {
+  const params = useParams();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { messages, character, isLoading, isStreaming, error, sendMessage } = useChat();
+  const characterId = params.characterId as string | undefined;
+  const convId = searchParams.get("conv") || undefined;
+
+  const { messages, character, isLoading, isStreaming, error, sendMessage } = useChat({
+    characterId,
+    conversationId: convId,
+  });
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

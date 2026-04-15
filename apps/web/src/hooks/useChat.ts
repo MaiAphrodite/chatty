@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../lib/api";
 import type { Message, Conversation, Character } from "../lib/types";
 
+type UseChatOptions = {
+  characterId?: string;
+  conversationId?: string;
+};
+
 type ChatState = {
   messages: Message[];
   conversation: Conversation | null;
@@ -14,7 +19,9 @@ type ChatState = {
   sendMessage: (content: string) => Promise<void>;
 };
 
-export function useChat(): ChatState {
+export function useChat(options: UseChatOptions = {}): ChatState {
+  const { characterId, conversationId } = options;
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
@@ -24,8 +31,19 @@ export function useChat(): ChatState {
   const streamingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function initialize() {
       try {
+        if (conversationId) {
+          const msgs = await api.getMessages(conversationId);
+          if (!cancelled) {
+            setMessages(msgs);
+            setIsLoading(false);
+          }
+          return;
+        }
+
         const characters = await api.getCharacters();
         if (characters.length === 0) {
           setError("No characters available");
@@ -33,30 +51,45 @@ export function useChat(): ChatState {
           return;
         }
 
-        setCharacter(characters[0]);
+        const char = characterId
+          ? characters.find((c) => c.id === characterId)
+          : characters[0];
 
-        let convos = await api.getConversations();
-        let convo: Conversation;
-
-        if (convos.length === 0) {
-          convo = await api.createConversation(characters[0].id);
-        } else {
-          convo = convos[0];
+        if (!char) {
+          setError("Character not found");
+          setIsLoading(false);
+          return;
         }
 
-        setConversation(convo);
+        if (!cancelled) setCharacter(char);
 
-        const existingMessages = await api.getMessages(convo.id);
-        setMessages(existingMessages);
+        const convos = await api.getConversations();
+        const existingConvo = convos.find(
+          (c) => c.characterId === char.id
+        );
+
+        const convo = existingConvo || await api.createConversation(char.id);
+
+        if (!cancelled) {
+          setConversation(convo);
+          const existingMessages = await api.getMessages(convo.id);
+          setMessages(existingMessages);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to initialize");
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to initialize");
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
 
     initialize();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [characterId, conversationId]);
 
   const sendMessage = useCallback(
     async (content: string) => {

@@ -1,14 +1,24 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: chatty
+      POSTGRES_PASSWORD: chatty
+      POSTGRES_DB: chatty
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+
   chatty:
     build: .
     ports:
-      - "3000:3000"  # Next.js
-      - "4000:4000"  # Elysia API
-      - "5432:5432"  # PostgreSQL
+      - "3000:3000"
+      - "4000:4000"
     environment:
-      - DATABASE_URL=postgres://chatty:chatty@localhost:5432/chatty
-    volumes:
-      - pgdata:/var/lib/postgresql
+      - DATABASE_URL=postgres://chatty:chatty@postgres:5432/chatty
+    depends_on:
+      - postgres
 
 volumes:
   pgdata:

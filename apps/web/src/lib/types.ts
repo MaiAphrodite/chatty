@@ -20,6 +20,7 @@ export type Conversation = {
   createdAt: string;
   updatedAt: string;
   character?: Pick<Character, "id" | "name" | "avatarUrl">;
+  latestMessage?: Pick<Message, "content" | "createdAt">;
 };
 
 export type Message = {
