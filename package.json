@@ -10,6 +10,7 @@
     "db:generate": "cd apps/api && bun run db:generate",
     "db:migrate": "cd apps/api && bun run db:migrate",
     "db:push": "cd apps/api && bun run db:push",
+    "db:deploy": "cd apps/api && bun run db:deploy",
     "db:seed": "cd apps/api && bun run db:seed"
   }
 }
