@@ -1,30 +1,39 @@
+/* Discord-style message input */
+
 .wrapper {
-  padding: 0 16px 16px 16px;
+  padding: 0 16px 16px;
   padding-bottom: calc(16px + var(--safe-bottom));
+  flex-shrink: 0;
 }
 
 .container {
   display: flex;
   align-items: flex-end;
-  gap: 0;
-  background: var(--bg-elevated);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 4px 4px 4px 16px;
+  padding: 0 4px 0 4px;
   position: relative;
+  transition: border-color var(--transition-fast);
+}
+
+.container:focus-within {
+  border-color: var(--border-medium);
 }
 
 .textarea {
   flex: 1;
   resize: none;
-  min-height: 24px;
-  max-height: 120px;
-  padding: 10px 0;
-  font-size: 0.95rem;
-  line-height: 1.45;
+  min-height: 44px;
+  max-height: 220px;
+  padding: 11px 12px;
+  font-size: 0.9375rem;
+  line-height: 1.375;
   color: var(--text-primary);
   background: transparent;
   border: none;
   outline: none;
+  scrollbar-width: thin;
 }
 
 .textarea::placeholder {
@@ -33,6 +42,7 @@
 
 .textarea:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .sendButton {
@@ -42,18 +52,25 @@
   width: 36px;
   height: 36px;
   min-width: 36px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
+  background: transparent;
   color: var(--text-muted);
-  transition: color var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast);
   flex-shrink: 0;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .sendButton:hover:not(:disabled) {
-  color: var(--text-primary);
+  color: var(--accent-secondary);
+  background: var(--bg-modifier-hover);
 }
 
 .sendButton:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.sendButton svg {
+  width: 20px;
+  height: 20px;
 }

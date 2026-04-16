@@ -18,7 +18,18 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
       },
     });
 
-    return result;
+    const withLatest = await Promise.all(
+      result.map(async (conv) => {
+        const latest = await db.query.messages.findFirst({
+          where: (m, { eq }) => eq(m.conversationId, conv.id),
+          orderBy: (m) => desc(m.createdAt),
+          columns: { content: true, createdAt: true },
+        });
+        return { ...conv, latestMessage: latest || null };
+      })
+    );
+
+    return withLatest;
   })
   .post(
     "/conversations",

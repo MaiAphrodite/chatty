@@ -1,0 +1,206 @@
+/* HomeSidebar — own-specific styles, composited with ContextSidebar.module.css */
+
+.headerTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ── Visibility badge ── */
+.visibilityTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: 99px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.6;
+  transition: opacity var(--transition-fast);
+}
+
+.visibilityTagPublic {
+  background: rgba(87, 242, 135, 0.12);
+  color: #57f287;
+  border: 1px solid rgba(87, 242, 135, 0.25);
+}
+
+.visibilityTagPrivate {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border: 1px solid var(--border-medium);
+}
+
+/* ── Section divider ── */
+.sectionLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 12px 8px 4px;
+}
+
+/* ── Character row ── */
+.characterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: var(--radius-xs);
+  cursor: default;
+  transition: background var(--transition-fast);
+}
+
+.characterRow:hover {
+  background: var(--bg-modifier-hover);
+}
+
+.characterRow:hover .charActions {
+  opacity: 1;
+}
+
+.charAvatar {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: var(--radius-full);
+  background: var(--accent-primary-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.charAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.charName {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.charActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+
+/* ── Icon buttons ── */
+.iconBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.iconBtn:hover {
+  background: var(--bg-modifier-active);
+  color: var(--text-primary);
+}
+
+.iconBtnDanger:hover {
+  background: rgba(242, 63, 66, 0.15);
+  color: var(--error);
+}
+
+/* ── Inline delete confirmation ── */
+.deleteConfirm {
+  margin: 4px 0 8px;
+  padding: 12px;
+  background: rgba(242, 63, 66, 0.06);
+  border: 1px solid rgba(242, 63, 66, 0.25);
+  border-radius: var(--radius-sm);
+  animation: fadeIn 0.12s ease both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.deleteConfirmText {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.deleteConfirmText strong {
+  color: var(--text-primary);
+}
+
+.deleteConfirmActions {
+  display: flex;
+  gap: 6px;
+}
+
+.deleteConfirmBtn {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: var(--radius-xs);
+  background: var(--error);
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.deleteConfirmBtn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.deleteConfirmBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.deleteConfirmCancelBtn {
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  border: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.deleteConfirmCancelBtn:hover:not(:disabled) {
+  background: var(--bg-modifier-hover);
+  color: var(--text-primary);
+}
+
+.deleteConfirmCancelBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

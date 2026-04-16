@@ -1,29 +1,59 @@
-.container {
+/* ── Chat layout shell ── */
+
+.shell {
   display: flex;
-  flex-direction: column;
   height: 100dvh;
-  max-width: 100%;
   overflow: hidden;
-  background: var(--bg-secondary);
 }
 
+/* The content area sits to the right of the sidebar and fills remaining space.
+   Uses CSS var --sidebar-width written by Sidebar.tsx on toggle. */
+.chatContent {
+  flex: 1;
+  min-width: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+/* ── Full-page loading state ── */
+.spinnerWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  background: var(--bg-primary);
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border-medium);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* ── Message list ── */
 .messages {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  padding: 8px 0;
+  padding: 16px 0 8px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
 
+/* ── Loading dots (character load) ── */
 .loadingContainer {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100dvh;
-  background: var(--bg-secondary);
+  flex: 1;
 }
 
 .loadingDots {
@@ -32,28 +62,24 @@
 }
 
 .loadingDots span {
-  width: 10px;
-  height: 10px;
-  background: var(--accent-primary);
+  width: 8px;
+  height: 8px;
+  background: var(--text-muted);
   border-radius: 50%;
   animation: pulse 1.2s ease-in-out infinite;
 }
 
-.loadingDots span:nth-child(2) {
-  animation-delay: 0.15s;
-}
+.loadingDots span:nth-child(2) { animation-delay: 0.15s; }
+.loadingDots span:nth-child(3) { animation-delay: 0.30s; }
 
-.loadingDots span:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
+/* ── Empty state ── */
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 32px 24px 24px;
-  gap: 6px;
+  padding: 48px 24px 24px;
+  gap: 8px;
   margin-top: auto;
 }
 
@@ -62,11 +88,12 @@
   height: 80px;
   border-radius: var(--radius-full);
   object-fit: cover;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-md);
 }
 
 .emptyTitle {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -74,25 +101,40 @@
 .emptySubtitle {
   font-size: 0.875rem;
   color: var(--text-secondary);
-  max-width: 300px;
-  line-height: 1.45;
+  max-width: 320px;
+  line-height: 1.5;
 }
 
 .emptyHint {
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--border-subtle);
   width: 100%;
   max-width: 400px;
 }
 
+/* ── Error bar ── */
 .errorBar {
   padding: 8px 16px;
-  background: rgba(248, 113, 113, 0.08);
-  border-top: 1px solid rgba(248, 113, 113, 0.15);
+  background: rgba(242, 63, 66, 0.08);
+  border-top: 1px solid rgba(242, 63, 66, 0.2);
   color: var(--error);
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   text-align: center;
+  flex-shrink: 0;
+}
+
+/* ── Page container (inside chatContent) ── */
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Mobile (Fallback logic) ── */
+@media (max-width: 767px) {
+  /* No margin adjustments needed in true flexbox, we just hide sidebars via CSS later if necessary */
 }

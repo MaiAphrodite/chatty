@@ -9,7 +9,23 @@ export type Character = {
   name: string;
   description: string;
   avatarUrl: string | null;
+  systemPrompt?: string;
+  firstMessage?: string;
+  exampleDialogue?: string;
+  isPublic: boolean;
+  creatorId: string;
   createdAt: string;
+  updatedAt?: string;
+};
+
+export type CharacterPayload = {
+  name: string;
+  description?: string;
+  avatarUrl?: string | null;
+  systemPrompt: string;
+  firstMessage: string;
+  exampleDialogue?: string;
+  isPublic?: boolean;
 };
 
 export type Conversation = {
@@ -20,6 +36,7 @@ export type Conversation = {
   createdAt: string;
   updatedAt: string;
   character?: Pick<Character, "id" | "name" | "avatarUrl">;
+  latestMessage?: Pick<Message, "content" | "createdAt">;
 };
 
 export type Message = {

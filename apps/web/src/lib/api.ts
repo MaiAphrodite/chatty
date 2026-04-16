@@ -1,4 +1,4 @@
-import type { User, Character, Conversation, Message } from "./types";
+import type { User, Character, CharacterPayload, Conversation, Message } from "./types";
 
 const BASE = "/api";
 
@@ -58,6 +58,39 @@ export const api = {
 
   getCharacters() {
     return request<Character[]>("/characters");
+  },
+
+  getMyCharacters() {
+    return request<Character[]>("/characters/mine");
+  },
+
+  getCharacter(id: string) {
+    return request<Character>(`/characters/${id}`);
+  },
+
+  createCharacter(data: CharacterPayload) {
+    return request<Character>("/characters", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateCharacter(id: string, data: Partial<CharacterPayload>) {
+    return request<Character>(`/characters/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteCharacter(id: string) {
+    return fetch(`${BASE}/characters/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    }).then((res) => {
+      if (!res.ok && res.status !== 204) {
+        throw new ApiError(res.status, `Delete failed (${res.status})`);
+      }
+    });
   },
 
   getConversations() {

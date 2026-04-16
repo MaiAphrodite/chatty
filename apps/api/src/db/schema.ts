@@ -1,4 +1,5 @@
 import {
+  boolean,
   pgTable,
   text,
   timestamp,
@@ -15,10 +16,17 @@ export const users = pgTable("users", {
 export const characters = pgTable("characters", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
-  description: text("description").notNull(),
+  description: text("description"),
   systemPrompt: text("system_prompt").notNull(),
   avatarUrl: text("avatar_url"),
+  firstMessage: text("first_message").notNull(),
+  exampleDialogue: text("example_dialogue"),
+  isPublic: boolean("is_public").notNull().default(true),
+  creatorId: uuid("creator_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const conversations = pgTable("conversations", {

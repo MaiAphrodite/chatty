@@ -1,46 +1,41 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
+import { ServerRail } from "../../components/Layout/ServerRail";
+import { ContextSidebar } from "../../components/Layout/ContextSidebar";
+import styles from "./chat.module.css";
 
-export default function ChatLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ChatLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace("/login");
-  }, [user, isLoading, router]);
+    if (!isLoading && !user) {
+      router.replace("/login");
+    } else if (user && pathname === "/chat") {
+      router.replace("/home");
+    }
+  }, [user, isLoading, router, pathname]);
 
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100dvh",
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            border: "3px solid var(--border-medium)",
-            borderTopColor: "var(--accent-primary)",
-            borderRadius: "50%",
-            animation: "spin 0.6s linear infinite",
-          }}
-        />
-      </div>
-    );
-  }
-
+  if (isLoading) return <LoadingSpinner />;
   if (!user) return null;
 
-  return <>{children}</>;
+  return (
+    <div className={styles.shell}>
+      <ServerRail />
+      <ContextSidebar />
+      <div className={styles.chatContent}>{children}</div>
+    </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className={styles.spinnerWrap}>
+      <div className={styles.spinner} />
+    </div>
+  );
 }

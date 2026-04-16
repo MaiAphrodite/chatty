@@ -1,0 +1,319 @@
+.sidebar {
+  width: var(--context-sidebar-width, 240px);
+  height: 100dvh;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-medium);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 90;
+  transition: width 0.2s ease, opacity 0.2s ease, padding 0.2s ease, border-width 0.2s ease;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-medium); /* Hard structural border */
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.headerSearch {
+  width: 100%;
+  height: 28px;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  text-align: left;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.headerInteractive {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-medium);
+  flex-shrink: 0;
+  cursor: pointer;
+  z-index: 2;
+  transition: background var(--transition-fast);
+}
+
+.headerInteractive:hover {
+  background: var(--bg-modifier-hover);
+}
+
+.serverTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Scroller ── */
+.scroller {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scroller::-webkit-scrollbar {
+  width: 4px;
+}
+.scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroller::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+}
+.scroller:hover::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+}
+
+/* ── Category ── */
+.category {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 4px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.category:hover {
+  color: var(--text-primary);
+}
+
+.category svg {
+  transition: transform var(--transition-fast);
+}
+
+.categoryClosed svg {
+  transform: rotate(-90deg);
+}
+
+/* ── Channels List ── */
+.channelList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 16px;
+}
+
+.channelItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.channelItem:hover {
+  background: var(--bg-modifier-hover);
+  color: var(--text-primary);
+}
+
+.channelItem.active {
+  background: var(--bg-modifier-active);
+  color: var(--text-primary);
+}
+
+.channelItem svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.channelName {
+  font-size: 0.9375rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.createButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 12px;
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.createButton:hover {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+}
+
+.createButton svg {
+  flex-shrink: 0;
+}
+
+/* ── DM List (Home Mode) ── */
+.directMessagesHeader {
+  display: flex;
+  align-items: center;
+  padding: 8px 8px 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.friendItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.friendItem:hover {
+  background: var(--bg-modifier-hover);
+  color: var(--text-primary);
+}
+
+.friendItem.active {
+  background: var(--bg-modifier-active);
+  color: var(--text-primary);
+}
+
+.friendItem.active .friendAvatar {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.friendAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.friendName {
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+/* ── User Panel (Bottom Anchor) ── */
+.userPanel {
+  height: 52px;
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border-medium);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.userPanelInner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  flex: 1;
+  min-width: 0;
+}
+
+.userPanelInner:hover {
+  background: var(--bg-modifier-hover);
+}
+
+.userAvatar {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: var(--radius-full);
+  background: var(--accent-primary-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.username {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.userStatus {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.userActions {
+  display: flex;
+  align-items: center;
+}
+
+.actionBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.actionBtn:hover {
+  background: var(--bg-modifier-hover);
+  color: var(--text-primary);
+}

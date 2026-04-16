@@ -5,8 +5,12 @@ export const usersRelations = relations(users, ({ many }) => ({
   conversations: many(conversations),
 }));
 
-export const charactersRelations = relations(characters, ({ many }) => ({
+export const charactersRelations = relations(characters, ({ one, many }) => ({
   conversations: many(conversations),
+  creator: one(users, {
+    fields: [characters.creatorId],
+    references: [users.id],
+  }),
 }));
 
 export const conversationsRelations = relations(
