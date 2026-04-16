@@ -108,6 +108,6 @@ jobs:
             docker compose pull api
             docker compose up -d --remove-orphans
             
-            # Apply database migrations
-            docker compose exec -T api bun run db:push
+            # Apply database migrations (non-interactive, idempotent)
+            docker compose exec -T api bun run db:deploy
 
