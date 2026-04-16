@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
-import { Sidebar } from "../../../components/Sidebar/Sidebar";
+import styles from "../chat.module.css";
 
 export default function ChatCharacterLayout({
   children,
@@ -46,11 +46,8 @@ export default function ChatCharacterLayout({
   if (!user) return null;
 
   return (
-    <div style={{ display: "flex" }}>
-      <Sidebar />
-      <div style={{ flex: 1, marginLeft: 72, minHeight: "100dvh" }}>
-        {children}
-      </div>
+    <div className={styles.chatContent}>
+      {children}
     </div>
   );
 }

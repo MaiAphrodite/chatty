@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../hooks/useChat";
 import { CharacterHeader } from "../../../components/CharacterHeader";
-import { CharacterMenu } from "../../../components/CharacterMenu";
+
 import { MessageRow } from "../../../components/MessageRow";
 import { ChatInput } from "../../../components/ChatInput";
 import type { Message } from "../../../lib/types";

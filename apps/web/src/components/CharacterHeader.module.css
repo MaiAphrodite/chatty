@@ -1,27 +1,65 @@
+/* Discord-style DM channel header */
+
 .header {
   height: var(--header-height);
   background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-medium);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 16px;
-  padding-top: var(--safe-top);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  flex-shrink: 0;
 }
 
-.inner {
+.identity {
   display: flex;
   align-items: center;
-  gap: 4px;
-  width: 100%;
+  gap: 8px;
+}
+
+.toggleBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: var(--radius-xs);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.toggleBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface);
+}
+
+.avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+}
+
+.avatarFallback {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--accent-primary-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
 }
 
 .atSign {
-  font-size: 1.15rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--text-muted);
+  line-height: 1;
 }
 
 .name {
@@ -35,13 +73,11 @@
   height: 8px;
   border-radius: 50%;
   background: var(--success);
-  margin-left: 6px;
   flex-shrink: 0;
 }
 
-.rightSection {
-  margin-left: auto;
+.actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
