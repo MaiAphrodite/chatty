@@ -27,7 +27,7 @@ const characterPatchBody = t.Object({
 async function assertOwnership(
   characterId: string,
   userId: string,
-  set: { status: number | string },
+  set: { status?: number | string },
 ): Promise<void> {
   const character = await db.query.characters.findFirst({
     where: eq(characters.id, characterId),
