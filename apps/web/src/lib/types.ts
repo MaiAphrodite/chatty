@@ -2,6 +2,9 @@ export type User = {
   id: string;
   username: string;
   createdAt?: string;
+  llmEndpoint?: string | null;
+  llmApiKey?: string | null;
+  llmModel?: string | null;
 };
 
 export type Character = {
@@ -13,6 +16,7 @@ export type Character = {
   firstMessage?: string;
   exampleDialogue?: string;
   isPublic: boolean;
+  memoryMode: "manual" | "auto";
   creatorId: string;
   createdAt: string;
   updatedAt?: string;
@@ -26,6 +30,7 @@ export type CharacterPayload = {
   firstMessage: string;
   exampleDialogue?: string;
   isPublic?: boolean;
+  memoryMode?: "manual" | "auto";
 };
 
 export type Conversation = {
@@ -45,5 +50,4 @@ export type Message = {
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: string;
-  isStreaming?: boolean;
 };

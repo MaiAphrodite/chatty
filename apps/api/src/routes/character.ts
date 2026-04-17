@@ -12,6 +12,7 @@ const characterBody = t.Object({
   firstMessage: t.String({ minLength: 1, maxLength: 500 }),
   exampleDialogue: t.Optional(t.String({ maxLength: 2000 })),
   isPublic: t.Optional(t.Boolean()),
+  memoryMode: t.Optional(t.Union([t.Literal("manual"), t.Literal("auto")])),
 });
 
 const characterPatchBody = t.Object({
@@ -22,6 +23,7 @@ const characterPatchBody = t.Object({
   firstMessage: t.Optional(t.String({ minLength: 1, maxLength: 500 })),
   exampleDialogue: t.Optional(t.String({ maxLength: 2000 })),
   isPublic: t.Optional(t.Boolean()),
+  memoryMode: t.Optional(t.Union([t.Literal("manual"), t.Literal("auto")])),
 });
 
 async function assertOwnership(
@@ -106,6 +108,7 @@ export const characterRoutes = new Elysia({ prefix: "/characters" })
           firstMessage: body.firstMessage,
           exampleDialogue: body.exampleDialogue ?? "",
           isPublic: body.isPublic ?? true,
+          memoryMode: body.memoryMode ?? "manual",
           creatorId: userId!,
         })
         .returning();
@@ -130,6 +133,7 @@ export const characterRoutes = new Elysia({ prefix: "/characters" })
           ...(body.firstMessage !== undefined && { firstMessage: body.firstMessage }),
           ...(body.exampleDialogue !== undefined && { exampleDialogue: body.exampleDialogue }),
           ...(body.isPublic !== undefined && { isPublic: body.isPublic }),
+          ...(body.memoryMode !== undefined && { memoryMode: body.memoryMode }),
           updatedAt: new Date(),
         })
         .where(eq(characters.id, params.id))

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import { ServerRail } from "../../components/Layout/ServerRail";
 import { ContextSidebar } from "../../components/Layout/ContextSidebar";
+import { ModelRail } from "../../components/Layout/ModelRail";
 import styles from "./chat.module.css";
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
       <ServerRail />
       <ContextSidebar />
       <div className={styles.chatContent}>{children}</div>
+      <ModelRail />
     </div>
   );
 }

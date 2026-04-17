@@ -36,15 +36,15 @@
 }
 
 .avatar {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-full);
   object-fit: cover;
 }
 
 .avatarFallback {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-full);
   background: var(--accent-primary-dim);
   display: flex;
@@ -52,15 +52,9 @@
   justify-content: center;
   color: #fff;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
-.atSign {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  line-height: 1;
-}
 
 .name {
   font-size: 1rem;

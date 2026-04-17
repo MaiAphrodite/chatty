@@ -1,4 +1,4 @@
-/* Discord message layout */
+/* Message row layout */
 
 .row {
   display: flex;
@@ -120,7 +120,7 @@
 
 .content strong {
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .content code {
@@ -168,34 +168,125 @@
   margin: 4px 0;
 }
 
-/* Streaming indicators */
-.cursor {
-  display: inline-block;
-  width: 2px;
-  height: 1em;
-  background: var(--text-secondary);
-  margin-left: 1px;
-  vertical-align: text-bottom;
-  animation: blink 0.8s step-end infinite;
-}
-
-.typing {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px 0;
+/* ── Action toolbar ── */
+.actionsBar {
+  position: absolute;
+  top: -16px;
+  right: 48px;
+  display: flex;
   align-items: center;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+  z-index: 10;
 }
 
-.typing span {
-  width: 6px;
-  height: 6px;
-  background: var(--text-muted);
-  border-radius: 50%;
-  animation: typingBounce 1.2s ease-in-out infinite;
+.row:hover .actionsBar {
+  opacity: 1;
+  pointer-events: all;
 }
 
-.typing span:nth-child(2) { animation-delay: 0.15s; }
-.typing span:nth-child(3) { animation-delay: 0.30s; }
+.actionBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.actionBtn:hover {
+  background: var(--bg-modifier-hover);
+  color: var(--text-primary);
+}
+
+.actionBtnDanger:hover {
+  background: rgba(235, 111, 146, 0.15);
+  color: var(--error);
+}
+
+.actionBtnSuccess {
+  color: var(--accent-primary);
+  background: rgba(156, 207, 216, 0.15);
+}
+
+.actionBtnSuccess:hover {
+  color: var(--accent-primary);
+  background: rgba(156, 207, 216, 0.25);
+}
+
+/* ── Inline edit ── */
+.editArea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.editTextarea {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.375;
+  padding: 8px 10px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.editTextarea:focus {
+  border-color: var(--accent-primary);
+  outline: none;
+}
+
+.editActions {
+  display: flex;
+  gap: 6px;
+}
+
+.editSaveBtn {
+  padding: 4px 12px;
+  border-radius: var(--radius-xs);
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.editSaveBtn:hover {
+  background: var(--accent-primary-hover);
+}
+
+.editCancelBtn {
+  padding: 4px 10px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  border: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.editCancelBtn:hover {
+  background: var(--bg-modifier-hover);
+  color: var(--text-primary);
+}
 
 /* New message row: more top padding */
 .row:has(.gutter) {

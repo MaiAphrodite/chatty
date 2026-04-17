@@ -1,0 +1,185 @@
+/* CharacterSidebar — scoped styles composited with ContextSidebar.module.css */
+
+/* ── New chat button in header ── */
+.newChatBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.newChatBtn:hover {
+  background: var(--bg-modifier-hover);
+  color: var(--accent-primary);
+}
+
+/* ── Conversation row ── */
+.convRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  position: relative;
+  min-width: 0;
+}
+
+.convRow:hover,
+.convRowActive {
+  background: var(--bg-modifier-hover);
+  color: var(--text-primary);
+}
+
+.convRowActive {
+  background: var(--bg-modifier-active);
+}
+
+.convRow svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.convLabel {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+
+/* ── Hover action buttons ── */
+.convActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.convRow:hover .convActions {
+  opacity: 1;
+}
+
+.convActionBtn {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.convActionBtn:hover {
+  background: var(--bg-modifier-active);
+  color: var(--text-primary);
+}
+
+.convActionBtnDanger:hover {
+  background: rgba(235, 111, 146, 0.15);
+  color: var(--error);
+}
+
+/* ── Inline rename input ── */
+.renameInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  padding: 1px 6px;
+  outline: none;
+  font-family: inherit;
+}
+
+/* ── Inline delete confirm ── */
+.deleteConfirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  background: rgba(235, 111, 146, 0.06);
+  border: 1px solid rgba(235, 111, 146, 0.2);
+  border-radius: var(--radius-xs);
+  animation: fadeSlideIn 0.1s ease both;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.deleteConfirmText {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deleteConfirmActions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.deleteConfirmBtn {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-xs);
+  background: var(--error);
+  color: #fff;
+  cursor: pointer;
+  border: none;
+  transition: opacity var(--transition-fast);
+}
+
+.deleteConfirmBtn:hover { opacity: 0.85; }
+
+.deleteConfirmCancelBtn {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  border: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.deleteConfirmCancelBtn:hover {
+  background: var(--bg-modifier-hover);
+  color: var(--text-primary);
+}
+
+/* ── Empty hint ── */
+.emptyHint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  padding: 8px 8px 4px;
+  font-style: italic;
+}

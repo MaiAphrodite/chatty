@@ -34,10 +34,11 @@
   --border-medium: #555169;
 
   /* Pastel Accents */
-  --accent-primary: #ea9a97;        /* Soft Coral / Rose */
+  --accent-primary: #ea9a97;        /* Soft Coral / Rose — UI actions, buttons */
   --accent-primary-hover: #ebbcba;  /* Lighter Rose */
   --accent-primary-dim: rgba(234, 154, 151, 0.15);
-  --accent-secondary: #ea9a97;
+  --accent-secondary: #c4a7e7;      /* Rosé Pine Iris — character / role color */
+  --accent-secondary-dim: rgba(196, 167, 231, 0.15);
   --accent-glow: rgba(234, 154, 151, 0.3);
 
   /* Status Colors */
@@ -67,11 +68,12 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top:    env(safe-area-inset-top, 0px);
 
-  /* Layout — Dual Rail System */
+  /* Layout — Tri-Rail System */
   --header-height:         48px;
   --input-area-height:     72px;
   --server-rail-width:     72px;
   --context-sidebar-width: 240px;
+  --model-rail-width:      260px;
 }
 
 html {

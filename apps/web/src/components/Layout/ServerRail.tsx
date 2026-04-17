@@ -9,12 +9,14 @@ import type { Conversation } from "../../lib/types";
 import styles from "./ServerRail.module.css";
 
 import { HomeIcon, SettingsIcon } from "../ui/Icons";
+import { UserSettingsModal } from "../UserSettingsModal";
 
 export function ServerRail() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -80,17 +82,26 @@ export function ServerRail() {
       </div>
 
       <div className={styles.userContainer}>
-        <div className={styles.itemWrapper}>
-          <button className={styles.settingsButton} title="Settings">
+        <div className={styles.userItem}>
+          <button 
+            className={`${styles.settingsButton} ${isSettingsOpen ? styles.settingsButtonActive : ""}`} 
+            title="Settings"
+            onClick={() => setIsSettingsOpen(true)}
+          >
             <SettingsIcon />
           </button>
         </div>
-        <div className={styles.itemWrapper}>
+        <div className={styles.userItem}>
           <div className={styles.userAvatar} title={user?.username}>
             {user?.username.charAt(0).toUpperCase()}
           </div>
         </div>
       </div>
+
+      <UserSettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
     </nav>
   );
 }

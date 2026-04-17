@@ -1,7 +1,12 @@
 {
-  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/chat/conversations/[id]/messages/route": "app/api/chat/conversations/[id]/messages/route.js",
+  "/manifest.webmanifest/route": "app/manifest.webmanifest/route.js",
+  "/create/page": "app/create/page.js",
+  "/home/page": "app/home/page.js",
+  "/page": "app/page.js",
   "/(auth)/register/page": "app/(auth)/register/page.js",
   "/chat/page": "app/chat/page.js",
-  "/manifest.webmanifest/route": "app/manifest.webmanifest/route.js",
-  "/page": "app/page.js"
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/chat/[characterId]/page": "app/chat/[characterId]/page.js"
 }

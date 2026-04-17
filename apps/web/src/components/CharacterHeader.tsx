@@ -5,7 +5,9 @@ import { CharacterMenu } from "./CharacterMenu";
 import { useLayout } from "../hooks/useLayout";
 import styles from "./CharacterHeader.module.css";
 
-import { HamburgerIcon } from "./ui/Icons";
+import { HamburgerIcon, SlidersIcon } from "./ui/Icons";
+
+const MODEL_RAIL_EVENT = "chatty:toggle-model-rail";
 
 type CharacterHeaderProps = { character: Character | null };
 
@@ -13,6 +15,8 @@ export function CharacterHeader({ character }: CharacterHeaderProps) {
   const { toggleSidebar } = useLayout();
 
   if (!character) return null;
+
+  const toggleModelRail = () => window.dispatchEvent(new Event(MODEL_RAIL_EVENT));
 
   return (
     <header className={styles.header}>
@@ -25,19 +29,21 @@ export function CharacterHeader({ character }: CharacterHeaderProps) {
             src={character.avatarUrl}
             alt={character.name}
             className={styles.avatar}
-            width={24}
-            height={24}
+            width={32}
+            height={32}
           />
         ) : (
           <div className={styles.avatarFallback}>
             {character.name.charAt(0).toUpperCase()}
           </div>
         )}
-        <span className={styles.atSign}>@</span>
         <span className={styles.name}>{character.name}</span>
         <span className={styles.statusDot} title="Online" />
       </div>
       <div className={styles.actions}>
+        <button className={styles.toggleBtn} onClick={toggleModelRail} title="Model Settings">
+          <SlidersIcon />
+        </button>
         <CharacterMenu characterId={character.id} characterName={character.name} />
       </div>
     </header>

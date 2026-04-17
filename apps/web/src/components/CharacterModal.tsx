@@ -24,6 +24,7 @@ function useCharacterForm(initial?: Character) {
   const [firstMessage, setFirstMessage] = useState(initial?.firstMessage ?? "");
   const [exampleDialogue, setExampleDialogue] = useState(initial?.exampleDialogue ?? "");
   const [isPublic, setIsPublic] = useState(initial?.isPublic ?? true);
+  const [memoryMode, setMemoryMode] = useState<"manual" | "auto">(initial?.memoryMode ?? "manual");
 
   const toPayload = (): CharacterPayload => ({
     name: name.trim(),
@@ -33,6 +34,7 @@ function useCharacterForm(initial?: Character) {
     firstMessage: firstMessage.trim(),
     exampleDialogue: exampleDialogue.trim() || undefined,
     isPublic,
+    memoryMode,
   });
 
   const isValid = name.trim().length > 0 && systemPrompt.trim().length > 0 && firstMessage.trim().length > 0;
@@ -45,6 +47,7 @@ function useCharacterForm(initial?: Character) {
     firstMessage, setFirstMessage,
     exampleDialogue, setExampleDialogue,
     isPublic, setIsPublic,
+    memoryMode, setMemoryMode,
     toPayload, isValid,
   };
 }
@@ -192,6 +195,18 @@ export function CharacterModal({ mode, initial, onSuccess, onClose }: Props) {
               <span className={styles.toggleLabel}>Make character public</span>
             </label>
             <span className={styles.hint}>Public characters are visible to all users</span>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.toggle}>
+              <input type="checkbox" className={styles.toggleInput}
+                checked={form.memoryMode === "auto"}
+                onChange={(e) => form.setMemoryMode(e.target.checked ? "auto" : "manual")} />
+              <span className={styles.toggleLabel}>Auto Memory</span>
+            </label>
+            <span className={styles.hint}>
+              When enabled, the character automatically remembers personal details you share. Uses additional LLM calls.
+            </span>
           </div>
 
           {error && <div className={styles.error}>{error}</div>}

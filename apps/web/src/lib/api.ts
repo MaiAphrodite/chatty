@@ -56,6 +56,13 @@ export const api = {
     return request<User>("/auth/me");
   },
 
+  updateUserSettings(data: Partial<Pick<User, "llmEndpoint" | "llmApiKey" | "llmModel">>) {
+    return request<User>("/auth/me/settings", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
   getCharacters() {
     return request<Character[]>("/characters");
   },
@@ -104,8 +111,50 @@ export const api = {
     });
   },
 
+  renameConversation(id: string, title: string) {
+    return request<Conversation>(`/chat/conversations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title }),
+    });
+  },
+
+  deleteConversation(id: string) {
+    return fetch(`${BASE}/chat/conversations/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    }).then((res) => {
+      if (!res.ok && res.status !== 204) {
+        throw new ApiError(res.status, `Delete failed (${res.status})`);
+      }
+    });
+  },
+
   getMessages(conversationId: string) {
     return request<Message[]>(`/chat/conversations/${conversationId}/messages`);
+  },
+
+  deleteMessage(messageId: string) {
+    return fetch(`${BASE}/chat/messages/${messageId}`, {
+      method: "DELETE",
+      credentials: "include",
+    }).then((res) => {
+      if (!res.ok && res.status !== 204) {
+        throw new ApiError(res.status, `Delete failed (${res.status})`);
+      }
+    });
+  },
+
+  editMessage(messageId: string, content: string) {
+    return request<Message>(`/chat/messages/${messageId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  rememberMessage(messageId: string) {
+    return request<{ remembered: boolean }>(`/chat/messages/${messageId}/remember`, {
+      method: "POST",
+    });
   },
 
   async streamMessage(

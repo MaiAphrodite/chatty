@@ -10,6 +10,9 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  llmEndpoint: text("llm_endpoint"),
+  llmApiKey: text("llm_api_key"),
+  llmModel: text("llm_model"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -25,6 +28,7 @@ export const characters = pgTable("characters", {
   creatorId: uuid("creator_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  memoryMode: text("memory_mode").notNull().default("manual"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

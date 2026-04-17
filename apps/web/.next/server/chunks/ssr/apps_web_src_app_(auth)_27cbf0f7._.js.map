@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 3, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/apps/web/src/app/(auth)/auth.module.css [app-rsc] (css module)"],"sourcesContent":["__turbopack_context__.v({\n  \"card\": \"auth-module__9lQH2W__card\",\n  \"container\": \"auth-module__9lQH2W__container\",\n  \"fadeIn\": \"auth-module__9lQH2W__fadeIn\",\n  \"fadeInUp\": \"auth-module__9lQH2W__fadeInUp\",\n  \"link\": \"auth-module__9lQH2W__link\",\n  \"logo\": \"auth-module__9lQH2W__logo\",\n});\n"],"names":[],"mappings":"AAAA;AACA;AACA;AACA;AACA;AACA;AACA;AACA"}},
-    {"offset": {"line": 15, "column": 0}, "map": {"version":3,"sources":["file:///home/Mai/abcd/chatty/chatty/apps/web/src/app/%28auth%29/layout.tsx"],"sourcesContent":["import styles from \"./auth.module.css\";\n\nexport default function AuthLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <div className={styles.container}>\n      <div className={styles.card}>\n        <div className={styles.logo}>🐱</div>\n        {children}\n      </div>\n    </div>\n  );\n}\n"],"names":[],"mappings":";;;;;AAAA;;;AAEe,SAAS,WAAW,EACjC,QAAQ,EAGT;IACC,qBACE,oTAAC;QAAI,WAAW,oKAAM,CAAC,SAAS;kBAC9B,cAAA,oTAAC;YAAI,WAAW,oKAAM,CAAC,IAAI;;8BACzB,oTAAC;oBAAI,WAAW,oKAAM,CAAC,IAAI;8BAAE;;;;;;gBAC5B;;;;;;;;;;;;AAIT","debugId":null}}]
-}

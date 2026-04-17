@@ -5,11 +5,11 @@ import styles from "./ChatBubble.module.css";
 
 type ChatBubbleProps = {
   message: Message;
+  isStreaming?: boolean;
 };
 
-export function ChatBubble({ message }: ChatBubbleProps) {
+export function ChatBubble({ message, isStreaming = false }: ChatBubbleProps) {
   const isUser = message.role === "user";
-  const isStreaming = message.isStreaming;
 
   return (
     <div

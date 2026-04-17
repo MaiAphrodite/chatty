@@ -156,6 +156,14 @@
   width: 100%;
 }
 
+/* Non-pill control items at bottom of rail */
+.userItem {
+  width: 72px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .settingsButton {
   width: 48px;
   height: 48px;
@@ -170,7 +178,8 @@
   border: 1px solid transparent;
 }
 
-.itemWrapper:hover .settingsButton {
+.settingsButtonActive,
+.userItem:hover .settingsButton {
   background: var(--bg-modifier-active);
   color: var(--text-primary);
   border-radius: var(--radius-md);

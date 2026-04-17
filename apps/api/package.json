@@ -12,6 +12,8 @@
     "db:seed": "bun src/db/seed.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^1.1.9",
+    "ai": "^4.0.0",
     "@elysiajs/cors": "^1.2.0",
     "@elysiajs/jwt": "^1.4.1",
     "@sinclair/typebox": "^0.34.49",
