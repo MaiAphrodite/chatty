@@ -9,6 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatty -d chatty"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   chatty:
     build: .
@@ -18,8 +23,13 @@ services:
       - "4001:4001"
     environment:
       - DATABASE_URL=postgres://chatty:chatty@postgres:5432/chatty
+      - MIGRATION_RETRIES=15
+      - MIGRATION_RETRY_DELAY_SECONDS=3
+      - LOGGER_DASHBOARD_USER=admin
+      - LOGGER_DASHBOARD_PASSWORD=chatty123
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:

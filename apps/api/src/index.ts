@@ -7,6 +7,10 @@ import { characterRoutes } from "./routes/character";
 import { Logger } from "./services/logger";
 
 Logger.start();
+Logger.info("SYSTEM", "Logger dashboard auth initialized", {
+  user: process.env.LOGGER_DASHBOARD_USER || "admin",
+  auth: "basic",
+});
 
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
 

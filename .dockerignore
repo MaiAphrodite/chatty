@@ -6,3 +6,4 @@ pgdata
 .git
 AGENTS.md
 docs.md
+apps/web/tsconfig.tsbuildinfo
