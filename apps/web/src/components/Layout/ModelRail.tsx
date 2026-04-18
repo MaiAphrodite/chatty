@@ -1,11 +1,12 @@
 "use client";
 
 import { useReducer, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useSearchParams } from "next/navigation";
 import { api } from "../../lib/api";
-import type { MemoryFact, MemorySummary, Character } from "../../lib/types";
+import type { MemoryFact, MemorySummary, Character, SummaryEditorState } from "../../lib/types";
 import { useAuth } from "../../contexts/AuthContext";
-import { DatabaseIcon, MessagesSquareIcon } from "@/components/ui/Icons";
+import { DatabaseIcon, MessagesSquareIcon, XIcon } from "@/components/ui/Icons";
 import styles from "./ModelRail.module.css";
 
 // ─── Local Sampling Config ─────────────────────────────────────────────────────
@@ -581,6 +582,160 @@ function AddFactForm({ conversationId, onAdded, onCancel }: {
   );
 }
 
+function SummaryEditorModal({
+  isOpen,
+  conversationId,
+  onClose,
+  onSaved,
+}: {
+  isOpen: boolean;
+  conversationId: string | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [state, setState] = useState<SummaryEditorState | null>(null);
+  const [summaryDraft, setSummaryDraft] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [autoMode, setAutoMode] = useState<"delta" | "full" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadState = useCallback(async () => {
+    if (!conversationId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await api.getSummaryEditor(conversationId);
+      setState(data);
+      setSummaryDraft(data.summary);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load summary editor");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    loadState();
+  }, [isOpen, loadState]);
+
+  if (!isOpen || !conversationId) return null;
+
+  const autoSummarize = async (mode: "delta" | "full") => {
+    setAutoMode(mode);
+    setError(null);
+    try {
+      const next = await api.autoSummarizeMemory(conversationId, mode);
+      setState(next);
+      setSummaryDraft(next.summary);
+      window.dispatchEvent(new Event(MEMORY_UPDATED_EVENT));
+      await onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Auto summary failed");
+    } finally {
+      setAutoMode(null);
+    }
+  };
+
+  const saveSummary = async () => {
+    if (!summaryDraft.trim()) {
+      setError("Summary cannot be empty");
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      const saved = await api.saveSummary(conversationId, summaryDraft);
+      setState(saved);
+      setSummaryDraft(saved.summary);
+      window.dispatchEvent(new Event(MEMORY_UPDATED_EVENT));
+      await onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save summary");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updatedMeta = state?.updatedAt
+    ? `You have updated the chat summary around ~${state.messagesSinceUpdate} messages (${state.deltaTokenEstimate} tokens) ago.`
+    : "No summary saved yet. Auto-summary can generate one from your knowledge graph.";
+  const deltaMeta = state
+    ? `${state.deltaFactCount} new facts detected since last summary`
+    : "";
+
+  const modal = (
+    <div className={styles.summaryBackdrop} onClick={onClose}>
+      <div
+        className={styles.summaryModal}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="summary-modal-title"
+      >
+        <div className={styles.summaryHeader}>
+          <h2 id="summary-modal-title" className={styles.summaryTitle}>Summary of this chat</h2>
+          <button className={styles.summaryCloseBtn} onClick={onClose} aria-label="Close">
+            <XIcon size={16} />
+          </button>
+        </div>
+
+        <div className={styles.summaryBody}>
+          <p className={styles.summaryHint}>
+            Enter a summary for your chat. This will be included into the prompt as long-term memory.
+          </p>
+          <p className={styles.summaryMetaLine}>{updatedMeta}</p>
+          {deltaMeta && <p className={styles.summaryMetaLine}>{deltaMeta}</p>}
+
+          {isLoading ? (
+            <div className={styles.summaryLoading}>Loading summary…</div>
+          ) : (
+            <>
+              <textarea
+                className={styles.summaryTextarea}
+                value={summaryDraft}
+                onChange={(event) => setSummaryDraft(event.target.value)}
+                rows={9}
+                placeholder="No summary yet. Click one of the auto-summary buttons below to generate one."
+              />
+
+              <div className={styles.summaryActionsStack}>
+                <button
+                  className={styles.summaryAutoBtn}
+                  onClick={() => autoSummarize("delta")}
+                  disabled={isSaving || autoMode !== null}
+                >
+                  {autoMode === "delta" ? "Generating…" : "Auto Summary (Since last updated)"}
+                </button>
+                <button
+                  className={styles.summaryAutoBtn}
+                  onClick={() => autoSummarize("full")}
+                  disabled={isSaving || autoMode !== null}
+                >
+                  {autoMode === "full" ? "Generating…" : "Auto Summary (As far as possible)"}
+                </button>
+              </div>
+            </>
+          )}
+
+          {error && <div className={styles.summaryError}>{error}</div>}
+        </div>
+
+        <div className={styles.summaryFooter}>
+          <button className={styles.summaryCancelBtn} onClick={onClose} disabled={isSaving || autoMode !== null}>Cancel</button>
+          <button className={styles.summarySaveBtn} onClick={saveSummary} disabled={isLoading || isSaving || autoMode !== null}>
+            {isSaving ? "Saving…" : "Save Summary"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return typeof document !== "undefined" ? createPortal(modal, document.body) : null;
+}
+
 // ─── Memory Section ────────────────────────────────────────────────────────────
 
 function MemorySection({ characterId, conversationId }: { characterId: string; conversationId: string | null }) {
@@ -590,7 +745,7 @@ function MemorySection({ characterId, conversationId }: { characterId: string; c
   const [summaries, setSummaries] = useState<MemorySummary[]>([]);
   const [tokenCount, setTokenCount] = useState(0);
   const [tokenBudget, setTokenBudget] = useState(2000);
-  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isSummaryEditorOpen, setIsSummaryEditorOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -612,19 +767,6 @@ function MemorySection({ characterId, conversationId }: { characterId: string; c
       setIsLoading(false);
     }
   }, [characterId, conversationId]);
-
-  const handleSummarize = useCallback(async () => {
-    if (isSummarizing || !conversationId) return;
-    setIsSummarizing(true);
-    try {
-      await api.summarizeMemory(conversationId);
-      await fetchData();
-      window.dispatchEvent(new Event(MEMORY_UPDATED_EVENT));
-    } catch { /* ignore */ } finally {
-      setIsSummarizing(false);
-    }
-  }, [conversationId, isSummarizing, fetchData]);
-
 
   useEffect(() => {
     fetchData();
@@ -697,11 +839,11 @@ return (
         </div>
         <button
           className={styles.summarizeBtn}
-          onClick={handleSummarize}
-          disabled={isSummarizing || (!context && facts.length === 0)}
-          title={!context && facts.length === 0 ? "No memory to compress" : "Compress memory into summary"}
+          onClick={() => setIsSummaryEditorOpen(true)}
+          disabled={!conversationId}
+          title="Open summary editor"
         >
-          {isSummarizing ? "Summarizing…" : "⚡ Compress to Summary"}
+          Summary Editor
         </button>
       </CollapsibleSection>
 
@@ -741,6 +883,13 @@ return (
           </div>
         </CollapsibleSection>
       )}
+
+      <SummaryEditorModal
+        isOpen={isSummaryEditorOpen}
+        conversationId={conversationId}
+        onClose={() => setIsSummaryEditorOpen(false)}
+        onSaved={fetchData}
+      />
     </div>
   );
 }
