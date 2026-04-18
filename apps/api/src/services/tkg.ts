@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, isNull, desc, sql } from "drizzle-orm";
+import { eq, and, isNull, desc, sql, type SQL } from "drizzle-orm";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { tkgEntities, tkgEdges, tkgSummaries } from "../db/tkg-schema";
@@ -41,6 +41,7 @@ const MEMORY_TOKEN_BUDGET = 2000;
 const SUMMARIZATION_EDGE_THRESHOLD = 50;
 const SUMMARIZATION_INCREMENT = 25;
 const SUMMARY_BUDGET_RATIO = 0.65;
+const MAX_DELTA_FACTS = 250;
 
 // ─── Heuristic Trigger ────────────────────────────────────────────────────────
 //
@@ -165,7 +166,28 @@ function fetchActiveCharacterEdges(characterId: string, conversationId: string, 
   return limitCount ? query.limit(limitCount) : query;
 }
 
-function fetchActiveCharacterEdgesDetailed(characterId: string, conversationId: string, userId: string) {
+type EdgeFetchOptions = {
+  after?: Date;
+  limitCount?: number;
+};
+
+function buildDetailedEdgeFilters(
+  characterId: string,
+  conversationId: string,
+  userId: string,
+  options: EdgeFetchOptions,
+): SQL<unknown>[] {
+  const filters: SQL<unknown>[] = [
+    eq(tkgEdges.characterId, characterId),
+    eq(tkgEdges.conversationId, conversationId),
+    eq(tkgEdges.userId, userId),
+    isNull(tkgEdges.validUntil),
+  ];
+  if (options.after) filters.push(sql`${tkgEdges.createdAt} > ${options.after}`);
+  return filters;
+}
+
+function buildDetailedEdgeSelectQuery(filters: SQL<unknown>[]) {
   return db
     .select({
       id: tkgEdges.id,
@@ -179,14 +201,32 @@ function fetchActiveCharacterEdgesDetailed(characterId: string, conversationId: 
     .from(tkgEdges)
     .innerJoin(tkgEntities, eq(tkgEdges.sourceEntityId, tkgEntities.id))
     .innerJoin(sql`tkg_entities t2`, sql`${tkgEdges.targetEntityId} = t2.id`)
-    .where(
-      and(
-        eq(tkgEdges.characterId, characterId),
-        eq(tkgEdges.conversationId, conversationId),
-        eq(tkgEdges.userId, userId),
-        isNull(tkgEdges.validUntil),
-      )
-    );
+    .where(and(...filters));
+}
+
+function applyDetailedEdgeOrdering(
+  query: ReturnType<typeof buildDetailedEdgeSelectQuery>,
+) {
+  return query.orderBy(
+    desc(tkgEntities.mentionCount),
+    desc(tkgEntities.lastSeenAt),
+    desc(tkgEdges.createdAt),
+  );
+}
+
+function fetchActiveCharacterEdgesDetailedBaseQuery(filters: SQL<unknown>[]) {
+  return applyDetailedEdgeOrdering(buildDetailedEdgeSelectQuery(filters));
+}
+
+function fetchActiveCharacterEdgesDetailed(
+  characterId: string,
+  conversationId: string,
+  userId: string,
+  options: EdgeFetchOptions = {},
+) {
+  const filters = buildDetailedEdgeFilters(characterId, conversationId, userId, options);
+  const query = fetchActiveCharacterEdgesDetailedBaseQuery(filters);
+  return options.limitCount ? query.limit(options.limitCount) : query;
 }
 
 
@@ -221,55 +261,113 @@ function parseExtractionResponse(raw: string): ExtractionResult | null {
   }
 }
 
-export async function extractFacts(userMessage: string, assistantMessage: string, userId: string): Promise<ExtractionResult | null> {
-  Logger.info("TKG", `Initiating auto-extraction for user ${userId.substring(0, 6)}...`);
-
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-    columns: { llmEndpoint: true, llmApiKey: true, llmModel: true },
-  });
-  const { baseUrl, apiKey, modelId } = resolveProviderConfig(user);
-  const provider = createOpenAI({ baseURL: baseUrl, apiKey, compatibility: "compatible" });
+function createExtractionAbortController(modelId: string): {
+  controller: AbortController;
+  timeout: ReturnType<typeof setTimeout>;
+} {
   const controller = new AbortController();
   const timeoutMs = resolveExtractionTimeout(modelId);
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return { controller, timeout };
+}
+
+function getRawExtractionOutput(result: { text: string; reasoning?: string }): string {
+  return result.text || result.reasoning || "";
+}
+
+function parseAndNormalizeExtraction(rawOutput: string): {
+  parsed: ExtractionResult | null;
+  filteredOut: number;
+} {
+  const rawParsed = parseExtractionResponse(rawOutput);
+  const parsed = rawParsed ? normalizeAndFilter(rawParsed) : null;
+  const filteredOut = rawParsed ? rawParsed.relationships.length - (parsed?.relationships.length ?? 0) : 0;
+  return { parsed, filteredOut };
+}
+
+function logExtractionOutcome(
+  parsed: ExtractionResult | null,
+  filteredOut: number,
+  resultText: string,
+): void {
+  if (parsed && (parsed.entities.length > 0 || parsed.relationships.length > 0)) {
+    Logger.info("TKG", `Extraction found ${parsed.entities.length} entities, ${parsed.relationships.length} edges${filteredOut > 0 ? ` (${filteredOut} filtered)` : ""}`);
+    return;
+  }
+
+  Logger.warn("TKG", "Extraction returned no usable facts", {
+    rawLength: resultText.length,
+    preview: resultText.slice(0, 200),
+  });
+}
+
+function logExtractionProviderFailure(err: unknown, baseUrl: string, modelId: string): void {
+  const detail = err instanceof Error
+    ? { name: err.name, message: err.message, url: baseUrl, model: modelId }
+    : { raw: String(err), url: baseUrl, model: modelId };
+  Logger.warn("TKG", "Extraction skipped due to provider error", detail);
+}
+
+function clearExtractionTimeout(timeout: ReturnType<typeof setTimeout>): void {
+  clearTimeout(timeout);
+}
+
+async function findUserProviderRecord(userId: string) {
+  return db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { llmEndpoint: true, llmApiKey: true, llmModel: true },
+  });
+}
+
+function createExtractionProvider(userRecord: Awaited<ReturnType<typeof findUserProviderRecord>>) {
+  const { baseUrl, apiKey, modelId } = resolveProviderConfig(userRecord);
+  const provider = createOpenAI({ baseURL: baseUrl, apiKey, compatibility: "compatible" });
+  return { baseUrl, modelId, provider };
+}
+
+async function executeExtractionPrompt(
+  provider: ReturnType<typeof createOpenAI>,
+  modelId: string,
+  userMessage: string,
+  assistantMessage: string,
+  abortSignal: AbortSignal,
+) {
+  return generateText({
+    model: provider(modelId),
+    system: EXTRACTION_SYSTEM_PROMPT,
+    prompt: buildExtractionUserPrompt(userMessage, assistantMessage),
+    maxTokens: EXTRACTION_MAX_TOKENS,
+    temperature: 0.1,
+    abortSignal,
+    maxRetries: 0,
+  });
+}
+
+export async function extractFacts(userMessage: string, assistantMessage: string, userId: string): Promise<ExtractionResult | null> {
+  Logger.info("TKG", `Initiating auto-extraction for user ${userId.substring(0, 6)}...`);
+
+  const userProvider = await findUserProviderRecord(userId);
+  const { baseUrl, modelId, provider } = createExtractionProvider(userProvider);
+  const { controller, timeout } = createExtractionAbortController(modelId);
 
   try {
-    const result = await generateText({
-      model: provider(modelId),
-      system: EXTRACTION_SYSTEM_PROMPT,
-      prompt: buildExtractionUserPrompt(userMessage, assistantMessage),
-      maxTokens: EXTRACTION_MAX_TOKENS,
-      temperature: 0.1,
-      abortSignal: controller.signal,
-      maxRetries: 0,
-    });
-    // Reasoning models (deepseek-reasoner, o1, etc.) emit the final answer into
-    // result.reasoning and leave result.text empty when the output is pure JSON.
-    const rawOutput = result.text || (result as any).reasoning || "";
-    const rawParsed = parseExtractionResponse(rawOutput);
-    const parsed = rawParsed ? normalizeAndFilter(rawParsed) : null;
-    const filteredOut = rawParsed ? rawParsed.relationships.length - (parsed?.relationships.length ?? 0) : 0;
-    if (parsed && (parsed.entities.length > 0 || parsed.relationships.length > 0)) {
-      Logger.info("TKG", `Extraction found ${parsed.entities.length} entities, ${parsed.relationships.length} edges${filteredOut > 0 ? ` (${filteredOut} filtered)` : ""}`);
-    } else {
-      // Log raw model output so we can diagnose when parsing silently fails
-      Logger.warn("TKG", "Extraction returned no usable facts", {
-        rawLength: result.text.length,
-        preview: result.text.slice(0, 200),
-      });
-    }
+    const result = await executeExtractionPrompt(
+      provider,
+      modelId,
+      userMessage,
+      assistantMessage,
+      controller.signal,
+    );
+    // Reasoning models (deepseek-reasoner, o1, etc.) emit final output in reasoning.
+    const rawOutput = getRawExtractionOutput(result as { text: string; reasoning?: string });
+    const { parsed, filteredOut } = parseAndNormalizeExtraction(rawOutput);
+    logExtractionOutcome(parsed, filteredOut, result.text);
     return parsed;
   } catch (err) {
-    // TKG extraction is a silent background job — provider failures must never
-    // surface to the user or crash the main thread. Log full detail and return null.
-    const detail = err instanceof Error
-      ? { name: err.name, message: err.message, url: baseUrl, model: modelId }
-      : { raw: String(err), url: baseUrl, model: modelId };
-    Logger.warn("TKG", "Extraction skipped due to provider error", detail);
+    logExtractionProviderFailure(err, baseUrl, modelId);
     return null;
   } finally {
-    clearTimeout(timeout);
+    clearExtractionTimeout(timeout);
   }
 }
 
@@ -468,10 +566,18 @@ type DetailedEdge = {
   sourceName: string;
   predicate: string;
   targetName: string;
-  createdAt: Date;
-  mentionCount: number;
-  lastSeenAt: Date;
+  createdAt: Date | string | number | null;
+  mentionCount: number | string | null;
+  lastSeenAt: Date | string | number | null;
 };
+
+function compareDetailedEdgePriority(a: DetailedEdge, b: DetailedEdge): number {
+  const mentionDelta = toFiniteNumber(b.mentionCount) - toFiniteNumber(a.mentionCount);
+  if (mentionDelta !== 0) return mentionDelta;
+  const seenDelta = toMillis(b.lastSeenAt) - toMillis(a.lastSeenAt);
+  if (seenDelta !== 0) return seenDelta;
+  return toMillis(b.createdAt) - toMillis(a.createdAt);
+}
 
 type SummaryMode = "delta" | "full";
 
@@ -483,6 +589,43 @@ export type SummaryEditorState = {
   deltaTokenEstimate: number;
   messagesSinceUpdate: number;
 };
+
+class TkgServiceError extends Error {
+  readonly code: string;
+
+  constructor(code: string, message: string, cause?: unknown) {
+    super(message, cause ? { cause } : undefined);
+    this.name = "TkgServiceError";
+    this.code = code;
+  }
+}
+
+class RecoverableTkgError extends TkgServiceError {
+  constructor(code: string, message: string, cause?: unknown) {
+    super(code, message, cause);
+    this.name = "RecoverableTkgError";
+  }
+}
+
+function isRecoverableTkgError(error: unknown): error is RecoverableTkgError {
+  return error instanceof RecoverableTkgError;
+}
+
+function wrapTkgError(code: string, message: string, error: unknown): TkgServiceError {
+  if (error instanceof TkgServiceError) return error;
+  return new TkgServiceError(code, message, error);
+}
+
+function emptySummaryEditorState(): SummaryEditorState {
+  return {
+    summary: "",
+    factCount: 0,
+    updatedAt: null,
+    deltaFactCount: 0,
+    deltaTokenEstimate: 0,
+    messagesSinceUpdate: 0,
+  };
+}
 
 function packEdgesIntoContext(edges: ContextEdge[], maxChars: number): string | null {
   let context = "";
@@ -496,6 +639,49 @@ function packEdgesIntoContext(edges: ContextEdge[], maxChars: number): string | 
 
 function estimateTokenCount(text: string | null): number {
   return Math.ceil((text ?? "").length / 4);
+}
+
+function normalizeTimestamp(value: Date | string | number | null | undefined): Date | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === "number") {
+    const fromNumber = new Date(value);
+    return Number.isNaN(fromNumber.getTime()) ? null : fromNumber;
+  }
+  if (typeof value === "string") {
+    const fromString = new Date(value);
+    return Number.isNaN(fromString.getTime()) ? null : fromString;
+  }
+  return null;
+}
+
+function toMillis(value: Date | string | number | null | undefined): number {
+  const normalized = normalizeTimestamp(value);
+  return normalized ? normalized.getTime() : 0;
+}
+
+function toFiniteNumber(value: number | string | null | undefined): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function getRequiredDate(value: Date | string | number | null | undefined, context: string): Date {
+  const date = normalizeTimestamp(value);
+  if (!date) {
+    throw new RecoverableTkgError("INVALID_TIMESTAMP", `Invalid timestamp for ${context}`);
+  }
+  return date;
+}
+
+function getSafeIsoDate(value: Date | string | number | null | undefined): string {
+  return normalizeTimestamp(value)?.toISOString() ?? new Date(0).toISOString();
+}
+
+function getErrorCode(error: unknown): string {
+  return error instanceof TkgServiceError ? error.code : "UNKNOWN";
 }
 
 function dedupeFacts(facts: string[]): string[] {
@@ -521,25 +707,21 @@ async function findSummaryRow(characterId: string, conversationId: string, userI
 }
 
 async function countMessagesSince(conversationId: string, since: Date | null): Promise<number> {
-  if (!since) return 0;
+  const sinceDate = getRequiredDate(since, "summary updatedAt");
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(messages)
-    .where(and(eq(messages.conversationId, conversationId), sql`${messages.createdAt} > ${since}`));
+    .where(and(eq(messages.conversationId, conversationId), sql`${messages.createdAt} > ${sinceDate}`));
   return row?.count ?? 0;
 }
 
 async function fetchDeltaFacts(characterId: string, conversationId: string, userId: string, after: Date): Promise<string[]> {
-  const edges = await fetchActiveCharacterEdgesDetailed(characterId, conversationId, userId) as DetailedEdge[];
-  const sorted = edges
-    .filter((edge) => edge.createdAt > after)
-    .sort((a, b) => {
-      const mentionDelta = b.mentionCount - a.mentionCount;
-      if (mentionDelta !== 0) return mentionDelta;
-      const seenDelta = b.lastSeenAt.getTime() - a.lastSeenAt.getTime();
-      if (seenDelta !== 0) return seenDelta;
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    });
+  const afterDate = getRequiredDate(after, "delta anchor");
+  const edges = await fetchActiveCharacterEdgesDetailed(characterId, conversationId, userId, {
+    after: afterDate,
+    limitCount: MAX_DELTA_FACTS,
+  }) as DetailedEdge[];
+  const sorted = edges.sort(compareDetailedEdgePriority);
   return dedupeFacts(sorted.map((edge) => formatEdgeAsFact(edge.sourceName, edge.predicate, edge.targetName)));
 }
 
@@ -568,6 +750,153 @@ function joinMemorySections(summaryText: string | null, deltaText: string | null
   return sections.join("\n\n");
 }
 
+async function loadDeltaFactsForSummary(
+  characterId: string,
+  conversationId: string,
+  userId: string,
+  updatedAt: Date | string | number | null | undefined,
+): Promise<string[]> {
+  const anchorDate = getRequiredDate(updatedAt, "summary updatedAt");
+  return fetchDeltaFacts(characterId, conversationId, userId, anchorDate);
+}
+
+function buildSummaryEditorState(
+  summary: string,
+  factCount: number,
+  updatedAt: Date,
+  deltaFacts: string[],
+  messagesSinceUpdate: number,
+): SummaryEditorState {
+  return {
+    summary,
+    factCount,
+    updatedAt: updatedAt.toISOString(),
+    deltaFactCount: deltaFacts.length,
+    deltaTokenEstimate: estimateTokenCount(deltaFacts.join(". ")),
+    messagesSinceUpdate,
+  };
+}
+
+async function resolveSummaryEditorState(
+  characterId: string,
+  conversationId: string,
+  userId: string,
+): Promise<SummaryEditorState> {
+  const summaryRow = await findSummaryRow(characterId, conversationId, userId);
+  if (!summaryRow) return emptySummaryEditorState();
+
+  const updatedAt = getRequiredDate(summaryRow.updatedAt, "summary row updatedAt");
+  const [deltaFacts, messagesSinceUpdate] = await Promise.all([
+    loadDeltaFactsForSummary(characterId, conversationId, userId, updatedAt),
+    countMessagesSince(conversationId, updatedAt),
+  ]);
+
+  return buildSummaryEditorState(
+    summaryRow.summary,
+    summaryRow.factCount,
+    updatedAt,
+    deltaFacts,
+    messagesSinceUpdate,
+  );
+}
+
+function normalizeSummaryWithinBudget(summary: string, maxChars: number): string {
+  const trimmed = summary.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  return `${trimmed.slice(0, Math.max(0, maxChars - 1))}…`;
+}
+
+function estimateMemorySectionOverhead(summaryText: string): number {
+  return summaryText.length + 64;
+}
+
+function buildMemoryDeltaContext(
+  deltaFacts: string[],
+  remainingBudget: number,
+): { text: string; usedFacts: number; droppedFacts: number } {
+  return packFactList(deltaFacts, remainingBudget);
+}
+
+function logMemoryContextStats(
+  characterId: string,
+  conversationId: string,
+  summaryText: string,
+  deltaPacked: { text: string; usedFacts: number; droppedFacts: number },
+): void {
+  Logger.info("TKG", "Memory context assembled", {
+    characterId,
+    conversationId,
+    summaryTokens: estimateTokenCount(summaryText),
+    deltaTokens: estimateTokenCount(deltaPacked.text),
+    deltaFactCount: deltaPacked.usedFacts,
+    droppedFactCount: deltaPacked.droppedFacts,
+  });
+}
+
+async function loadFallbackEdgeContext(
+  characterId: string,
+  conversationId: string,
+  userId: string,
+  maxChars: number,
+): Promise<string | null> {
+  const fallbackEdges = await fetchActiveCharacterEdges(characterId, conversationId, userId, 30) as ContextEdge[];
+  if (fallbackEdges.length === 0) return null;
+  return packEdgesIntoContext(fallbackEdges, maxChars);
+}
+
+function logSummaryStateFailure(
+  characterId: string,
+  conversationId: string,
+  error: unknown,
+) {
+  Logger.error("TKG", "Summary editor state resolution failed", {
+    characterId,
+    conversationId,
+    code: getErrorCode(error),
+    err: error,
+  });
+}
+
+function logMemoryContextFailure(
+  characterId: string,
+  conversationId: string,
+  error: unknown,
+) {
+  Logger.error("TKG", "Memory context assembly failed; falling back to edge pack", {
+    characterId,
+    conversationId,
+    code: getErrorCode(error),
+    err: error,
+  });
+}
+
+async function loadMemoryContextFromSummary(
+  summaryRow: { summary: string; updatedAt: Date | string | number | null },
+  characterId: string,
+  conversationId: string,
+  userId: string,
+  maxChars: number,
+): Promise<string | null> {
+  const summaryBudget = Math.floor(maxChars * SUMMARY_BUDGET_RATIO);
+  const summaryText = normalizeSummaryWithinBudget(summaryRow.summary, summaryBudget);
+  const remainingBudget = Math.max(0, maxChars - estimateMemorySectionOverhead(summaryText));
+
+  const deltaFacts = await loadDeltaFactsForSummary(
+    characterId,
+    conversationId,
+    userId,
+    summaryRow.updatedAt,
+  );
+  const deltaPacked = buildMemoryDeltaContext(deltaFacts, remainingBudget);
+  const context = joinMemorySections(summaryText || null, deltaPacked.text || null);
+
+  if (!context) return loadFallbackEdgeContext(characterId, conversationId, userId, maxChars);
+
+  logMemoryContextStats(characterId, conversationId, summaryText, deltaPacked);
+
+  return context;
+}
+
 async function executeDeltaSummarizationLlm(
   userId: string,
   currentSummary: string,
@@ -594,20 +923,18 @@ export async function getSummaryEditorState(
   conversationId: string,
   userId: string,
 ): Promise<SummaryEditorState> {
-  const summaryRow = await findSummaryRow(characterId, conversationId, userId);
-  const updatedAt = summaryRow?.updatedAt ?? null;
-  const deltaFacts = updatedAt
-    ? await fetchDeltaFacts(characterId, conversationId, userId, updatedAt)
-    : [];
-  const messagesSinceUpdate = await countMessagesSince(conversationId, updatedAt);
-  return {
-    summary: summaryRow?.summary ?? "",
-    factCount: summaryRow?.factCount ?? 0,
-    updatedAt: updatedAt ? updatedAt.toISOString() : null,
-    deltaFactCount: deltaFacts.length,
-    deltaTokenEstimate: estimateTokenCount(deltaFacts.join(". ")),
-    messagesSinceUpdate,
-  };
+  try {
+    return await resolveSummaryEditorState(characterId, conversationId, userId);
+  } catch (err) {
+    const handledError = wrapTkgError(
+      "SUMMARY_EDITOR_STATE_FAILED",
+      "Summary editor state resolution failed",
+      err,
+    );
+    logSummaryStateFailure(characterId, conversationId, handledError);
+    if (!isRecoverableTkgError(handledError)) throw handledError;
+    return emptySummaryEditorState();
+  }
 }
 
 export async function saveManualSummary(
@@ -626,83 +953,119 @@ export async function saveManualSummary(
   return getSummaryEditorState(characterId, conversationId, userId);
 }
 
+async function loadSummaryFactsOrWarn(
+  characterId: string,
+  conversationId: string,
+  userId: string,
+  mode: SummaryMode,
+): Promise<ContextEdge[]> {
+  const edges = await fetchActiveCharacterEdges(characterId, conversationId, userId) as ContextEdge[];
+  if (edges.length > 0) return edges;
+
+  Logger.warn("TKG", "Auto summarize triggered but no facts exist", {
+    characterId,
+    conversationId,
+    mode,
+  });
+  return [];
+}
+
+function hasExistingSummary(summaryRow: { summary: string } | null): boolean {
+  return Boolean(summaryRow?.summary.trim());
+}
+
+function asSummaryRow(
+  summaryRow: { summary: string; updatedAt: Date | string | number | null } | null | undefined,
+): { summary: string; updatedAt: Date | string | number | null } | null {
+  return summaryRow ?? null;
+}
+
+async function buildDeltaAutoSummary(
+  userId: string,
+  summaryRow: { summary: string; updatedAt: Date | string | number | null },
+  characterId: string,
+  conversationId: string,
+): Promise<string | null> {
+  const summaryUpdatedAt = getRequiredDate(summaryRow.updatedAt, "summary updatedAt for delta auto mode");
+  const deltaFacts = await fetchDeltaFacts(characterId, conversationId, userId, summaryUpdatedAt);
+  if (deltaFacts.length === 0) return null;
+  return executeDeltaSummarizationLlm(userId, summaryRow.summary, deltaFacts);
+}
+
+async function buildFullAutoSummary(userId: string, edges: ContextEdge[]): Promise<string> {
+  return executeSummarizationLlm(userId, edgesToFacts(edges));
+}
+
+async function buildAutoSummaryText(
+  userId: string,
+  mode: SummaryMode,
+  summaryRow: { summary: string; updatedAt: Date | string | number | null } | null,
+  edges: ContextEdge[],
+  characterId: string,
+  conversationId: string,
+): Promise<string | null> {
+  if (mode === "delta" && hasExistingSummary(summaryRow)) {
+    return buildDeltaAutoSummary(userId, summaryRow as { summary: string; updatedAt: Date | string | number | null }, characterId, conversationId);
+  }
+  return buildFullAutoSummary(userId, edges);
+}
+
+function logAutoSummarizeComplete(
+  characterId: string,
+  conversationId: string,
+  mode: SummaryMode,
+  factCount: number,
+): void {
+  Logger.info("TKG", "Auto summarize complete", {
+    characterId,
+    conversationId,
+    mode,
+    factCount,
+  });
+}
+
 export async function autoSummarizeMemory(
   characterId: string,
   conversationId: string,
   userId: string,
   mode: SummaryMode,
 ): Promise<SummaryEditorState> {
-  const edges = await fetchActiveCharacterEdges(characterId, conversationId, userId);
-  if (edges.length === 0) {
-    Logger.warn("TKG", "Auto summarize triggered but no facts exist", {
-      characterId,
-      conversationId,
-      mode,
-    });
-    return getSummaryEditorState(characterId, conversationId, userId);
-  }
+  const edges = await loadSummaryFactsOrWarn(characterId, conversationId, userId, mode);
+  if (edges.length === 0) return getSummaryEditorState(characterId, conversationId, userId);
 
   const summaryRow = await findSummaryRow(characterId, conversationId, userId);
-  const hasSummary = Boolean(summaryRow?.summary.trim());
-
-  let summaryText = "";
-  if (mode === "delta" && hasSummary) {
-    const deltaFacts = await fetchDeltaFacts(
-      characterId,
-      conversationId,
-      userId,
-      summaryRow!.updatedAt,
-    );
-    if (deltaFacts.length === 0) return getSummaryEditorState(characterId, conversationId, userId);
-    summaryText = await executeDeltaSummarizationLlm(userId, summaryRow!.summary, deltaFacts);
-  } else {
-    summaryText = await executeSummarizationLlm(userId, edgesToFacts(edges));
-  }
-
-  await saveSummaryConfig(characterId, conversationId, userId, summaryText.trim(), edges.length);
-  Logger.info("TKG", "Auto summarize complete", {
+  const summaryText = await buildAutoSummaryText(
+    userId,
+    mode,
+    asSummaryRow(summaryRow),
+    edges,
     characterId,
     conversationId,
-    mode,
-    factCount: edges.length,
-  });
+  );
+  if (!summaryText) return getSummaryEditorState(characterId, conversationId, userId);
+
+  await saveSummaryConfig(characterId, conversationId, userId, summaryText.trim(), edges.length);
+  logAutoSummarizeComplete(characterId, conversationId, mode, edges.length);
   return getSummaryEditorState(characterId, conversationId, userId);
 }
 
 export async function buildMemoryContext(characterId: string, conversationId: string, userId: string, maxChars: number = MEMORY_TOKEN_BUDGET) {
-  const summaryRow = await findSummaryRow(characterId, conversationId, userId);
-  if (!summaryRow) {
-    const activeEdges = await fetchActiveCharacterEdges(characterId, conversationId, userId, 30) as ContextEdge[];
-    if (activeEdges.length === 0) return null;
-    return packEdgesIntoContext(activeEdges, maxChars);
+  try {
+    const summaryRow = await findSummaryRow(characterId, conversationId, userId);
+    if (!summaryRow) {
+      return loadFallbackEdgeContext(characterId, conversationId, userId, maxChars);
+    }
+    return loadMemoryContextFromSummary(summaryRow, characterId, conversationId, userId, maxChars);
+  } catch (err) {
+    const handledError = wrapTkgError(
+      "MEMORY_CONTEXT_ASSEMBLY_FAILED",
+      "Memory context assembly failed",
+      err,
+    );
+    logMemoryContextFailure(characterId, conversationId, handledError);
+    if (!isRecoverableTkgError(handledError)) throw handledError;
+    return loadFallbackEdgeContext(characterId, conversationId, userId, maxChars);
   }
-
-  const summaryBudget = Math.floor(maxChars * SUMMARY_BUDGET_RATIO);
-  const trimmed = summaryRow.summary.trim();
-  const summaryText = trimmed.length > summaryBudget
-    ? `${trimmed.slice(0, Math.max(0, summaryBudget - 1))}…`
-    : trimmed;
-
-  const remainingBudget = Math.max(0, maxChars - (summaryText.length + 64));
-  const deltaFacts = await fetchDeltaFacts(characterId, conversationId, userId, summaryRow.updatedAt);
-  const deltaPacked = packFactList(deltaFacts, remainingBudget);
-  const context = joinMemorySections(summaryText || null, deltaPacked.text || null);
-
-  if (!context) {
-    const fallbackEdges = await fetchActiveCharacterEdges(characterId, conversationId, userId, 30) as ContextEdge[];
-    return fallbackEdges.length > 0 ? packEdgesIntoContext(fallbackEdges, maxChars) : null;
-  }
-
-  Logger.info("TKG", "Memory context assembled", {
-    characterId,
-    conversationId,
-    summaryTokens: estimateTokenCount(summaryText),
-    deltaTokens: estimateTokenCount(deltaPacked.text),
-    deltaFactCount: deltaPacked.usedFacts,
-    droppedFactCount: deltaPacked.droppedFacts,
-  });
-
-  return context;
 }
 
 // ─── Summarization ────────────────────────────────────────────────────────────
@@ -811,8 +1174,8 @@ export async function getMemorySummaries(characterId: string, conversationId: st
     id: row.id,
     content: row.summary,
     entityCount: row.factCount,
-    createdAt: row.updatedAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    createdAt: getSafeIsoDate(row.updatedAt),
+    updatedAt: getSafeIsoDate(row.updatedAt),
   }));
 }
 

@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { timingSafeEqual, randomUUID } from "crypto";
 
 type LogLevel = "INFO" | "WARN" | "ERROR";
 type LogScope = "SYSTEM" | "HTTP" | "LLM" | "TKG" | "DB";
@@ -10,6 +11,122 @@ interface LogEntry {
   scope: LogScope;
   message: string;
   data?: any;
+}
+
+type SseEmitter = (chunk: string) => void;
+
+type BasicAuthCredentials = {
+  username: string;
+  password: string;
+};
+
+const LOGGER_DASHBOARD_USER = process.env.LOGGER_DASHBOARD_USER || "admin";
+const LOGGER_DASHBOARD_PASSWORD = process.env.LOGGER_DASHBOARD_PASSWORD || "chatty123";
+const LOGGER_DASHBOARD_REALM = "Chatty Logger";
+
+function decodeBasicAuthHeader(headerValue: string | null): BasicAuthCredentials | null {
+  if (!headerValue?.startsWith("Basic ")) return null;
+  const base64Payload = headerValue.slice("Basic ".length).trim();
+  const decoded = Buffer.from(base64Payload, "base64").toString("utf8");
+  const separatorIndex = decoded.indexOf(":");
+  if (separatorIndex <= 0) return null;
+  return {
+    username: decoded.slice(0, separatorIndex),
+    password: decoded.slice(separatorIndex + 1),
+  };
+}
+
+function secureCompare(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function unauthorizedResponse(): Response {
+  return buildJsonResponse("Authentication required", 401, {
+    "WWW-Authenticate": `Basic realm=\"${LOGGER_DASHBOARD_REALM}\", charset=\"UTF-8\"`,
+    "Cache-Control": "no-store",
+    "Content-Type": "text/plain; charset=utf-8",
+  });
+}
+
+function isAuthorizedDashboardRequest(request: Request): boolean {
+  const credentials = decodeBasicAuthHeader(request.headers.get("authorization"));
+  if (!credentials) return false;
+  return (
+    secureCompare(credentials.username, LOGGER_DASHBOARD_USER)
+    && secureCompare(credentials.password, LOGGER_DASHBOARD_PASSWORD)
+  );
+}
+
+function buildRequestMeta(request: Request): Record<string, unknown> {
+  return {
+    method: request.method,
+    path: new URL(request.url).pathname,
+    userAgent: request.headers.get("user-agent") || "unknown",
+    forwardedFor: request.headers.get("x-forwarded-for") || "unknown",
+  };
+}
+
+function captureRequestMeta(request: Request): Record<string, unknown> {
+  return buildRequestMeta(request);
+}
+
+function buildJsonResponse(body: string, status: number, headers: Record<string, string> = {}): Response {
+  return new Response(body, { status, headers });
+}
+
+function buildSseResponse(stream: ReadableStream): Response {
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+}
+
+function createEmitter(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+  onError: () => void,
+): SseEmitter {
+  return (chunk: string) => {
+    try {
+      controller.enqueue(encoder.encode(chunk));
+    } catch {
+      onError();
+    }
+  };
+}
+
+function createSseHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  };
+}
+
+function authorizedLoggerRequest(request: Request): boolean {
+  return isAuthorizedDashboardRequest(request);
+}
+
+function formatHistoricalSse(log: LogEntry): string {
+  return `data: ${JSON.stringify(log)}\n\n`;
+}
+
+function attachAbortCleanup(
+  request: Request,
+  emit: SseEmitter,
+  removeClient: () => void,
+  onDisconnect: () => void,
+): void {
+  request.signal.addEventListener("abort", () => {
+    removeClient();
+    onDisconnect();
+  });
 }
 
 const DASHBOARD_HTML = `
@@ -216,8 +333,38 @@ const DASHBOARD_HTML = `
 
 class LogService {
   private logs: LogEntry[] = [];
-  private clients: Set<(chunk: string) => void> = new Set();
+  private clients: Set<SseEmitter> = new Set();
   private maxLogs = 1000;
+
+  private appendLog(entry: LogEntry): void {
+    this.logs.push(entry);
+    if (this.logs.length > this.maxLogs) this.logs.shift();
+  }
+
+  private emitToClients(entry: LogEntry): void {
+    const payload = `data: ${JSON.stringify(entry)}\n\n`;
+    this.clients.forEach((emit) => emit(payload));
+  }
+
+  private printToConsole(entry: LogEntry): void {
+    const levelMethod = entry.level === "ERROR" ? "error" : entry.level === "WARN" ? "warn" : "log";
+    if (entry.data !== undefined) {
+      console[levelMethod](`[${entry.timestamp}] [${entry.level}] [${entry.scope}] ${entry.message}`, entry.data);
+      return;
+    }
+    console[levelMethod](`[${entry.timestamp}] [${entry.level}] [${entry.scope}] ${entry.message}`);
+  }
+
+  private createLogEntry(level: LogLevel, scope: LogScope, message: string, data?: unknown): LogEntry {
+    return {
+      id: randomUUID(),
+      timestamp: new Date().toISOString(),
+      level,
+      scope,
+      message,
+      data: data !== undefined ? this.serializeData(data) : undefined,
+    };
+  }
 
   private serializeData(data: unknown): unknown {
     if (data instanceof Error) {
@@ -233,57 +380,77 @@ class LogService {
   }
 
   private pushLog(level: LogLevel, scope: LogScope, message: string, data?: unknown) {
-    const serialized = data !== undefined ? this.serializeData(data) : undefined;
-    const entry: LogEntry = {
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      level,
-      scope,
-      message,
-      data: serialized,
-    };
-
-    const cLevel = level === "ERROR" ? "error" : level === "WARN" ? "warn" : "log";
-    if (serialized) {
-      console[cLevel](`[${entry.timestamp}] [${level}] [${scope}] ${message}`, serialized);
-    } else {
-      console[cLevel](`[${entry.timestamp}] [${level}] [${scope}] ${message}`);
-    }
-
-    this.logs.push(entry);
-    if (this.logs.length > this.maxLogs) this.logs.shift();
-
-    const sseChunk = `data: ${JSON.stringify(entry)}\n\n`;
-    this.clients.forEach(c => c(sseChunk));
+    const entry = this.createLogEntry(level, scope, message, data);
+    this.printToConsole(entry);
+    this.appendLog(entry);
+    this.emitToClients(entry);
   }
 
   info(scope: LogScope, message: string, data?: unknown) { this.pushLog("INFO", scope, message, data); }
   warn(scope: LogScope, message: string, data?: unknown) { this.pushLog("WARN", scope, message, data); }
   error(scope: LogScope, message: string, data?: unknown) { this.pushLog("ERROR", scope, message, data); }
 
+  private rejectUnauthorizedLoggerRequest(request: Request, message: string): Response {
+    this.warn("HTTP", message, captureRequestMeta(request));
+    return unauthorizedResponse();
+  }
+
+  private registerSseClient(emit: SseEmitter): void {
+    this.clients.add(emit);
+  }
+
+  private removeSseClient(emit: SseEmitter): void {
+    this.clients.delete(emit);
+  }
+
+  private replayLogs(emit: SseEmitter): void {
+    this.logs.forEach((log) => emit(formatHistoricalSse(log)));
+  }
+
+  private createSseStream(request: Request, encoder: TextEncoder): ReadableStream<Uint8Array> {
+    return new ReadableStream({
+      start: (controller) => {
+        const emit = createEmitter(controller, encoder, () => this.removeSseClient(emit));
+        this.registerSseClient(emit);
+        this.replayLogs(emit);
+        attachAbortCleanup(
+          request,
+          emit,
+          () => this.removeSseClient(emit),
+          () => this.info("HTTP", "Logger stream disconnected", captureRequestMeta(request)),
+        );
+      },
+    });
+  }
+
+  private buildDashboardPageResponse(): Response {
+    return new Response(DASHBOARD_HTML, { headers: { "Content-Type": "text/html" } });
+  }
+
+  private handleDashboardRequest(request: Request): Response {
+    if (!authorizedLoggerRequest(request)) {
+      return this.rejectUnauthorizedLoggerRequest(request, "Rejected unauthorized logger dashboard request");
+    }
+    this.info("HTTP", "Logger dashboard loaded", captureRequestMeta(request));
+    return this.buildDashboardPageResponse();
+  }
+
+  private handleStreamRequest(request: Request, encoder: TextEncoder): Response {
+    if (!authorizedLoggerRequest(request)) {
+      return this.rejectUnauthorizedLoggerRequest(request, "Rejected unauthorized logger stream request");
+    }
+    this.info("HTTP", "Logger stream connected", captureRequestMeta(request));
+    return new Response(this.createSseStream(request, encoder), { headers: createSseHeaders() });
+  }
+
   private createSseHandler() {
     const encoder = new TextEncoder();
-    return ({ request }: { request: Request }) => {
-      return new Response(
-        new ReadableStream({
-          start: (controller) => {
-            const emit = (chunk: string) => {
-              try { controller.enqueue(encoder.encode(chunk)); }
-              catch { this.clients.delete(emit); }
-            };
-            this.clients.add(emit);
-            this.logs.forEach(l => emit(`data: ${JSON.stringify(l)}\n\n`));
-            request.signal.addEventListener("abort", () => this.clients.delete(emit));
-          }
-        }),
-        { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" } }
-      );
-    };
+    return ({ request }: { request: Request }) => this.handleStreamRequest(request, encoder);
   }
 
   private createRoutes() {
     return new Elysia()
-      .get("/", () => new Response(DASHBOARD_HTML, { headers: { "Content-Type": "text/html" } }))
+      .get("/", ({ request }) => this.handleDashboardRequest(request))
       .get("/stream", this.createSseHandler());
   }
 

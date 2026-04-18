@@ -25,6 +25,69 @@ import {
 
 type HistoryMessage = { id: string; role: string; content: string };
 type LlmMessage = { role: "system" | "user" | "assistant"; content: string };
+type ScopedConversation = { id: string; characterId: string };
+
+function isConversationScopedPath(path: string): boolean {
+  return path.includes("/conversations/");
+}
+
+function extractConversationId(params: unknown): string | null {
+  const id = (params as Record<string, unknown>)?.id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+async function findScopedConversation(
+  conversationId: string,
+  userId: string,
+): Promise<ScopedConversation | null> {
+  return (await db.query.conversations.findFirst({
+    where: (c, { and, eq }) => and(eq(c.id, conversationId), eq(c.userId, userId)),
+    columns: { id: true, characterId: true },
+  })) ?? null;
+}
+
+async function resolveScopedConversation(
+  path: string,
+  params: unknown,
+  userId: string,
+  set: { status?: number | string },
+): Promise<ScopedConversation | null> {
+  if (!isConversationScopedPath(path)) return null;
+
+  const conversationId = extractConversationId(params);
+  if (!conversationId) return null;
+
+  const conversation = await findScopedConversation(conversationId, userId);
+  if (conversation) return conversation;
+
+  set.status = 404;
+  return null;
+}
+
+function enforceKnownRouteErrorStatus(set: { status?: number | string }): void {
+  const statusCode = typeof set.status === "number" ? set.status : Number(set.status);
+  if (!Number.isFinite(statusCode) || statusCode < 400) set.status = 500;
+}
+
+function logUnhandledRouteError(path: string, error: unknown): void {
+  Logger.error("HTTP", "Unhandled route error", { path, error });
+}
+
+function ensureConversationExists<T extends { message: string }>(
+  conversation: ScopedConversation | null,
+  set: { status?: number | string },
+  response: T,
+): ScopedConversation | T {
+  if (conversation) return conversation;
+  set.status = 404;
+  return response;
+}
+
+function ensureSummaryBody(summary: string, set: { status?: number | string }): { message: string } | null {
+  if (summary.trim()) return null;
+  set.status = 400;
+  return { message: "Summary cannot be empty" };
+}
 
 function liftGreetingIntoSystem(
   systemPrompt: string,
@@ -79,32 +142,65 @@ function buildSseStream(
 ): ReadableStream {
   const encoder = new TextEncoder();
   return new ReadableStream({
-    async start(controller) {
-      let fullText = "";
-      try {
-        for await (const chunk of textStream) {
-          fullText += chunk;
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-        }
-        if (fullText.trim()) {
-          const savedId = await persistAssistantMessage(conversationId, fullText);
-          if (savedId) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "saved_id", id: savedId })}\n\n`));
-          }
-          onComplete?.(fullText);
-        }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        Logger.error("LLM", "Stream interrupted by provider error", msg);
-        // Strip potential internal URLs / keys from the forwarded message
-        const safeMsg = msg.replace(/https?:\/\/[^\s]*/g, "[url]").replace(/Bearer [^\s]*/g, "[key]");
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", message: safeMsg })}\n\n`));
-      } finally {
-        controller.close();
-      }
-    },
+    start: (controller) => streamSseChunks(textStream, conversationId, onComplete, encoder, controller),
   });
+}
+
+function sanitizeProviderErrorMessage(message: string): string {
+  return message.replace(/https?:\/\/[^\s]*/g, "[url]").replace(/Bearer [^\s]*/g, "[key]");
+}
+
+function emitSseChunk(controller: ReadableStreamDefaultController<Uint8Array>, encoder: TextEncoder, payload: unknown): void {
+  controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+}
+
+function emitSseDone(controller: ReadableStreamDefaultController<Uint8Array>, encoder: TextEncoder): void {
+  controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+}
+
+async function flushAssistantMessage(
+  conversationId: string,
+  fullText: string,
+  onComplete: ((fullText: string) => void) | undefined,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+): Promise<void> {
+  if (!fullText.trim()) return;
+  const savedId = await persistAssistantMessage(conversationId, fullText);
+  if (savedId) emitSseChunk(controller, encoder, { type: "saved_id", id: savedId });
+  onComplete?.(fullText);
+}
+
+function emitSseProviderError(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+  error: unknown,
+): void {
+  const message = error instanceof Error ? error.message : String(error);
+  Logger.error("LLM", "Stream interrupted by provider error", message);
+  emitSseChunk(controller, encoder, { type: "error", message: sanitizeProviderErrorMessage(message) });
+}
+
+async function streamSseChunks(
+  textStream: AsyncIterable<string>,
+  conversationId: string,
+  onComplete: ((fullText: string) => void) | undefined,
+  encoder: TextEncoder,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+): Promise<void> {
+  let fullText = "";
+  try {
+    for await (const chunk of textStream) {
+      fullText += chunk;
+      emitSseChunk(controller, encoder, chunk);
+    }
+    await flushAssistantMessage(conversationId, fullText, onComplete, controller, encoder);
+    emitSseDone(controller, encoder);
+  } catch (error) {
+    emitSseProviderError(controller, encoder, error);
+  } finally {
+    controller.close();
+  }
 }
 
 // ─── POST /messages Helper Pipeline ──────────────────────────────────────────
@@ -177,21 +273,15 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
   .use(authGuard)
   .derive(async ({ params, userId, request, set }) => {
     const path = new URL(request.url).pathname;
-    if (!path.includes("/conversations/") || !(params as Record<string, unknown>)?.id) {
-      return { scopedConversation: null as { id: string; characterId: string } | null };
+    const scopedConversation = await resolveScopedConversation(path, params, userId!, set);
+    return { scopedConversation };
+  })
+  .onError(({ error, code, set, path }) => {
+    if (code === "UNKNOWN") {
+      logUnhandledRouteError(path, error);
+      enforceKnownRouteErrorStatus(set);
+      return { message: "Internal server error" };
     }
-
-    const conversation = await db.query.conversations.findFirst({
-      where: (c, { and, eq }) => and(eq(c.id, (params as { id: string }).id), eq(c.userId, userId!)),
-      columns: { id: true, characterId: true },
-    });
-
-    if (!conversation) {
-      set.status = 404;
-      return { scopedConversation: null as { id: string; characterId: string } | null };
-    }
-
-    return { scopedConversation: conversation };
   })
   .get("/conversations", async ({ userId }) => {
     const result = await db.query.conversations.findMany({
@@ -465,8 +555,8 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
   .get(
     "/conversations/:id/summary-editor",
     async ({ params, userId, set, scopedConversation }) => {
-      const conv = scopedConversation;
-      if (!conv) { set.status = 404; return { message: "Conversation not found" }; }
+      const conv = ensureConversationExists(scopedConversation, set, { message: "Conversation not found" });
+      if ("message" in conv) return conv;
       return getSummaryEditorState(conv.characterId, params.id, userId!);
     },
     { params: t.Object({ id: t.String({ format: "uuid" }) }) }
@@ -474,8 +564,8 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
   .post(
     "/conversations/:id/summary-editor/auto",
     async ({ params, userId, body, set, scopedConversation }) => {
-      const conv = scopedConversation;
-      if (!conv) { set.status = 404; return { message: "Conversation not found" }; }
+      const conv = ensureConversationExists(scopedConversation, set, { message: "Conversation not found" });
+      if ("message" in conv) return conv;
       return autoSummarizeMemory(conv.characterId, params.id, userId!, body.mode);
     },
     {
@@ -486,12 +576,12 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
   .put(
     "/conversations/:id/summary-editor",
     async ({ params, userId, body, set, scopedConversation }) => {
-      const conv = scopedConversation;
-      if (!conv) { set.status = 404; return { message: "Conversation not found" }; }
-      if (!body.summary.trim()) {
-        set.status = 400;
-        return { message: "Summary cannot be empty" };
-      }
+      const conv = ensureConversationExists(scopedConversation, set, { message: "Conversation not found" });
+      if ("message" in conv) return conv;
+
+      const summaryValidation = ensureSummaryBody(body.summary, set);
+      if (summaryValidation) return summaryValidation;
+
       return saveManualSummary(conv.characterId, params.id, userId!, body.summary);
     },
     {
