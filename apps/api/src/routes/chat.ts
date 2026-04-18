@@ -237,51 +237,53 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
   .post(
     "/conversations/:id/messages",
     async ({ params, body, userId, set }) => {
-      const conversation = await db.query.conversations.findFirst({
-        where: (c, { and, eq }) => and(eq(c.id, params.id), eq(c.userId, userId!)),
-        with: { character: true },
-      });
-
-      if (!conversation) { set.status = 404; return { message: "Conversation not found" }; }
-
-      const history: HistoryMessage[] = await db.query.messages.findMany({
-        where: (m, { eq }) => eq(m.conversationId, params.id),
-        orderBy: (m) => asc(m.createdAt),
-        columns: { id: true, role: true, content: true },
-      });
-
-      let userMsgId: string | undefined;
-      let userContent = body.content;
-
-      if (body.content) {
-        userMsgId = await persistUserMessage(params.id, body.content, history);
-      } else {
-        const lastUser = [...history].reverse().find(m => m.role === "user");
-        if (lastUser) { userContent = lastUser.content; userMsgId = lastUser.id; }
-      }
-
-      const prunedHistory = pruneHistory(history, body.activeAssistantMessageIds);
-
-      const user = await db.query.users.findFirst({ where: (u, { eq }) => eq(u.id, userId!) });
-      const { baseUrl, apiKey, modelId } = resolveProviderConfig(user);
-      const openaiProvider = createOpenAI({ baseURL: baseUrl, apiKey, compatibility: "compatible" });
-
-      const systemPrompt = await buildSystemPrompt(
-        conversation.character.systemPrompt,
-        conversation.characterId,
-        params.id,
-        userId!,
-        { systemPromptOverride: body.systemPrompt, negativePrompt: body.negativePrompt },
-      );
-
-      const streamOptions = assembleStreamOptions(
-        buildLlmMessages(systemPrompt, prunedHistory),
-        modelId,
-        openaiProvider,
-        { temperature: body.temperature, topP: body.topP, maxTokens: body.maxTokens, repPenalty: body.repPenalty },
-      );
-
       try {
+        const conversation = await db.query.conversations.findFirst({
+          where: (c, { and, eq }) => and(eq(c.id, params.id), eq(c.userId, userId!)),
+          with: { character: true },
+        });
+
+        if (!conversation) { set.status = 404; return { message: "Conversation not found" }; }
+
+        const history: HistoryMessage[] = await db.query.messages.findMany({
+          where: (m, { eq }) => eq(m.conversationId, params.id),
+          orderBy: (m) => asc(m.createdAt),
+          columns: { id: true, role: true, content: true },
+        });
+
+        let userMsgId: string | undefined;
+        let userContent = body.content;
+
+        if (body.content) {
+          userMsgId = await persistUserMessage(params.id, body.content, history);
+        } else {
+          const lastUser = [...history].reverse().find(m => m.role === "user");
+          if (lastUser) { userContent = lastUser.content; userMsgId = lastUser.id; }
+        }
+
+        const prunedHistory = pruneHistory(history, body.activeAssistantMessageIds);
+
+        const user = await db.query.users.findFirst({ where: (u, { eq }) => eq(u.id, userId!) });
+        const { baseUrl, apiKey, modelId } = resolveProviderConfig(user);
+        Logger.info("LLM", `Provider resolved: ${modelId} @ ${baseUrl}`);
+
+        const openaiProvider = createOpenAI({ baseURL: baseUrl, apiKey, compatibility: "compatible" });
+
+        const systemPrompt = await buildSystemPrompt(
+          conversation.character.systemPrompt,
+          conversation.characterId,
+          params.id,
+          userId!,
+          { systemPromptOverride: body.systemPrompt, negativePrompt: body.negativePrompt },
+        );
+
+        const streamOptions = assembleStreamOptions(
+          buildLlmMessages(systemPrompt, prunedHistory),
+          modelId,
+          openaiProvider,
+          { temperature: body.temperature, topP: body.topP, maxTokens: body.maxTokens, repPenalty: body.repPenalty },
+        );
+
         Logger.info("LLM", `Stream init: ${modelId} @ ${baseUrl}`, { temperature: streamOptions.temperature, topP: streamOptions.topP });
         const result = streamText(streamOptions);
         const onComplete = createOnCompleteCallback(
@@ -294,9 +296,10 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
           { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "X-Accel-Buffering": "no" } },
         );
       } catch (error) {
-        Logger.error("LLM", "LLM proxy setup failed", error);
-        set.status = 502;
-        return { message: error instanceof Error ? error.message : "LLM proxy failed" };
+        Logger.error("LLM", "Message pipeline failed", error);
+        set.status = 500;
+        const msg = error instanceof Error ? error.message : "Internal server error";
+        return { message: msg };
       }
     },
     {
