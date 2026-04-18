@@ -92,6 +92,7 @@ export const characterRoutes = new Elysia({ prefix: "/characters" })
         creatorId: true,
         createdAt: true,
         updatedAt: true,
+        memoryMode: true,
       },
     }),
   )

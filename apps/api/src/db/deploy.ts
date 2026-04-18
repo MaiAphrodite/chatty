@@ -60,9 +60,11 @@ const migrations = [
     VALUES ('system', '*')
     ON CONFLICT (username) DO NOTHING
   `,
+  // CAUTION: backfill only rows that truly have no greeting yet.
+  // Use an unmistakable sentinel so it never silently stomps real content.
   sql`
     UPDATE characters
-    SET first_message = '...'
+    SET first_message = '__PLACEHOLDER__'
     WHERE first_message IS NULL
   `,
   sql`
@@ -75,21 +77,28 @@ const migrations = [
 
   sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()`,
 
+  // --- User LLM settings (custom endpoint support) ---
+
+  sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS llm_endpoint TEXT`,
+  sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS llm_api_key  TEXT`,
+  sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS llm_model    TEXT`,
+
   // --- TKG Memory System (ADR-012) ---
 
   sql`ALTER TABLE characters ADD COLUMN IF NOT EXISTS memory_mode TEXT NOT NULL DEFAULT 'manual'`,
 
   sql`
     CREATE TABLE IF NOT EXISTS tkg_entities (
-      id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      character_id   UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
-      user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      name           TEXT NOT NULL,
-      entity_type    TEXT NOT NULL DEFAULT 'thing',
-      first_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_seen_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      mention_count  INT NOT NULL DEFAULT 1,
-      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      character_id     UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+      conversation_id  UUID REFERENCES conversations(id) ON DELETE CASCADE,
+      user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name             TEXT NOT NULL,
+      entity_type      TEXT NOT NULL DEFAULT 'thing',
+      first_seen_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      mention_count    INT NOT NULL DEFAULT 1,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `,
 
@@ -97,6 +106,7 @@ const migrations = [
     CREATE TABLE IF NOT EXISTS tkg_edges (
       id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       character_id      UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+      conversation_id   UUID REFERENCES conversations(id) ON DELETE CASCADE,
       user_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       source_entity_id  UUID NOT NULL REFERENCES tkg_entities(id) ON DELETE CASCADE,
       target_entity_id  UUID NOT NULL REFERENCES tkg_entities(id) ON DELETE CASCADE,
@@ -111,18 +121,31 @@ const migrations = [
 
   sql`
     CREATE TABLE IF NOT EXISTS tkg_summaries (
-      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      character_id  UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
-      user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      summary       TEXT NOT NULL,
-      fact_count    INT NOT NULL DEFAULT 0,
-      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      character_id     UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+      conversation_id  UUID REFERENCES conversations(id) ON DELETE CASCADE,
+      user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      summary          TEXT NOT NULL,
+      fact_count       INT NOT NULL DEFAULT 0,
+      updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `,
 
-  sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_tkg_entities_unique ON tkg_entities(character_id, user_id, lower(name))`,
-  sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_tkg_summaries_unique ON tkg_summaries(character_id, user_id)`,
-  sql`CREATE INDEX IF NOT EXISTS idx_tkg_edges_active ON tkg_edges(character_id, user_id) WHERE valid_until IS NULL`,
+  // Backfill TKG missing columns for live databases that ran earlier deploy scripts
+  sql`ALTER TABLE tkg_entities ADD COLUMN IF NOT EXISTS conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE`,
+  sql`ALTER TABLE tkg_edges ADD COLUMN IF NOT EXISTS conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE`,
+  sql`ALTER TABLE tkg_summaries ADD COLUMN IF NOT EXISTS conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE`,
+
+  // Re-create indices to include conversation_id
+  sql`DROP INDEX IF EXISTS idx_tkg_entities_unique`,
+  sql`CREATE UNIQUE INDEX idx_tkg_entities_unique ON tkg_entities(character_id, conversation_id, user_id, lower(name))`,
+  
+  sql`DROP INDEX IF EXISTS idx_tkg_summaries_unique`,
+  sql`CREATE UNIQUE INDEX idx_tkg_summaries_unique ON tkg_summaries(character_id, conversation_id, user_id)`,
+  
+  sql`DROP INDEX IF EXISTS idx_tkg_edges_active`,
+  sql`CREATE INDEX idx_tkg_edges_active ON tkg_edges(character_id, conversation_id, user_id) WHERE valid_until IS NULL`,
+  
   sql`CREATE INDEX IF NOT EXISTS idx_tkg_edges_source ON tkg_edges(source_entity_id)`,
   sql`CREATE INDEX IF NOT EXISTS idx_tkg_edges_target ON tkg_edges(target_entity_id)`,
 ];
