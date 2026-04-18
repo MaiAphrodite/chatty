@@ -288,9 +288,14 @@ class LogService {
   }
 
   start() {
-    this.createRoutes().listen(4001, () => {
-      console.log("🦊 Logger Dashboard running at http://localhost:4001");
-    });
+    try {
+      const server = this.createRoutes();
+      server.listen(4001, () => {
+        console.log("🦊 Logger Dashboard running at http://localhost:4001");
+      });
+    } catch (err) {
+      console.error("Logger dashboard failed to start:", err);
+    }
   }
 }
 
