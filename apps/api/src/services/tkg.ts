@@ -680,8 +680,31 @@ function getSafeIsoDate(value: Date | string | number | null | undefined): strin
   return normalizeTimestamp(value)?.toISOString() ?? new Date(0).toISOString();
 }
 
+function getSafeDate(value: Date | string | number | null | undefined, fallback: Date): Date {
+  return normalizeTimestamp(value) ?? fallback;
+}
+
 function getErrorCode(error: unknown): string {
   return error instanceof TkgServiceError ? error.code : "UNKNOWN";
+}
+
+function serializeErrorForLog(error: unknown): Record<string, unknown> {
+  if (error instanceof TkgServiceError) {
+    return {
+      code: error.code,
+      name: error.name,
+      message: error.message,
+      cause: error.cause instanceof Error ? error.cause.message : error.cause,
+    };
+  }
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      cause: error.cause instanceof Error ? error.cause.message : error.cause,
+    };
+  }
+  return { raw: String(error) };
 }
 
 function dedupeFacts(facts: string[]): string[] {
@@ -707,7 +730,8 @@ async function findSummaryRow(characterId: string, conversationId: string, userI
 }
 
 async function countMessagesSince(conversationId: string, since: Date | null): Promise<number> {
-  const sinceDate = getRequiredDate(since, "summary updatedAt");
+  if (!since) return 0;
+  const sinceDate = getSafeDate(since, new Date(0));
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(messages)
@@ -716,7 +740,7 @@ async function countMessagesSince(conversationId: string, since: Date | null): P
 }
 
 async function fetchDeltaFacts(characterId: string, conversationId: string, userId: string, after: Date): Promise<string[]> {
-  const afterDate = getRequiredDate(after, "delta anchor");
+  const afterDate = getSafeDate(after, new Date(0));
   const edges = await fetchActiveCharacterEdgesDetailed(characterId, conversationId, userId, {
     after: afterDate,
     limitCount: MAX_DELTA_FACTS,
@@ -756,7 +780,8 @@ async function loadDeltaFactsForSummary(
   userId: string,
   updatedAt: Date | string | number | null | undefined,
 ): Promise<string[]> {
-  const anchorDate = getRequiredDate(updatedAt, "summary updatedAt");
+  if (!updatedAt) return [];
+  const anchorDate = getSafeDate(updatedAt, new Date(0));
   return fetchDeltaFacts(characterId, conversationId, userId, anchorDate);
 }
 
@@ -785,7 +810,14 @@ async function resolveSummaryEditorState(
   const summaryRow = await findSummaryRow(characterId, conversationId, userId);
   if (!summaryRow) return emptySummaryEditorState();
 
-  const updatedAt = getRequiredDate(summaryRow.updatedAt, "summary row updatedAt");
+  const updatedAt = getSafeDate(summaryRow.updatedAt, new Date(0));
+  if (!normalizeTimestamp(summaryRow.updatedAt)) {
+    Logger.warn("TKG", "Summary row has invalid updatedAt; defaulting to epoch", {
+      characterId,
+      conversationId,
+      rawUpdatedAt: String(summaryRow.updatedAt),
+    });
+  }
   const [deltaFacts, messagesSinceUpdate] = await Promise.all([
     loadDeltaFactsForSummary(characterId, conversationId, userId, updatedAt),
     countMessagesSince(conversationId, updatedAt),
@@ -853,7 +885,7 @@ function logSummaryStateFailure(
     characterId,
     conversationId,
     code: getErrorCode(error),
-    err: error,
+    err: serializeErrorForLog(error),
   });
 }
 
@@ -866,7 +898,7 @@ function logMemoryContextFailure(
     characterId,
     conversationId,
     code: getErrorCode(error),
-    err: error,
+    err: serializeErrorForLog(error),
   });
 }
 
@@ -986,7 +1018,8 @@ async function buildDeltaAutoSummary(
   characterId: string,
   conversationId: string,
 ): Promise<string | null> {
-  const summaryUpdatedAt = getRequiredDate(summaryRow.updatedAt, "summary updatedAt for delta auto mode");
+  if (!summaryRow.updatedAt) return null;
+  const summaryUpdatedAt = getSafeDate(summaryRow.updatedAt, new Date(0));
   const deltaFacts = await fetchDeltaFacts(characterId, conversationId, userId, summaryUpdatedAt);
   if (deltaFacts.length === 0) return null;
   return executeDeltaSummarizationLlm(userId, summaryRow.summary, deltaFacts);
