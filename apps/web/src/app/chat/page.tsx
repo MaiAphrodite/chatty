@@ -44,7 +44,6 @@ export default function ChatPage() {
             message={message}
             senderName={message.role === "assistant" ? (character?.name ?? "Assistant") : (user?.username ?? "You")}
             avatarUrl={message.role === "assistant" ? (character?.avatarUrl ?? null) : null}
-            isGrouped={shouldGroup(messages, index)}
             isStreaming={message.id === streamingMessageId}
           />
         ))}

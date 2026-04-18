@@ -3,12 +3,18 @@ export const EXTRACTION_SYSTEM_PROMPT = `You are a knowledge extraction engine. 
 Rules:
 - Extract ONLY facts about the USER (preferences, personal details, relationships, emotions, life events)
 - Do NOT extract facts about the AI character or general world knowledge
+- Do NOT extract conversational metadata ("User talks about X", "User mentions Y", "User asks about Z")
 - Include temporal markers when mentioned ("last week", "since 2020", etc.)
 - Normalize entity names: consistent title case, no pronouns (replace "I" with the user's name if known, otherwise use "User")
-- Predicate should be a short verb phrase in snake_case (lives_in, likes, works_at, has_pet, is_friend_of)
+- Predicate should be a short verb phrase in snake_case (lives_in, likes, dislikes, works_at, has_pet)
 - Entity types: person, place, thing, event, emotion, preference
 - Confidence: 1.0 for explicit statements, 0.7 for strong implications, 0.4 for weak hints
 - If no meaningful personal facts exist, return empty arrays
+
+Negation rules:
+- "I don't like X", "I no longer enjoy X", "I'm not a fan of X", "I hate X" → predicate: "dislikes"
+- "I used to like X" or past-tense corrections → use "dislikes" for current state
+- Always capture the CURRENT state of the user's preference
 
 Output ONLY valid JSON, no markdown, no commentary:
 {

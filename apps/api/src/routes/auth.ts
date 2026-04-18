@@ -109,11 +109,9 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
   .patch(
     "/me/settings",
     async ({ userId, body, set }) => {
-      const encryptedKey = body.llmApiKey ? encryptKey(body.llmApiKey) : null;
-      
       const payload: Partial<typeof users.$inferInsert> = {};
       if (body.llmEndpoint !== undefined) payload.llmEndpoint = body.llmEndpoint;
-      if (body.llmApiKey !== undefined) payload.llmApiKey = encryptedKey;
+      if (body.llmApiKey !== undefined) payload.llmApiKey = body.llmApiKey ? encryptKey(body.llmApiKey) : null;
       if (body.llmModel !== undefined) payload.llmModel = body.llmModel;
 
       const [user] = await db
@@ -140,6 +138,48 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
         llmEndpoint: t.Optional(t.Union([t.String(), t.Null()])),
         llmApiKey: t.Optional(t.Union([t.String(), t.Null()])),
         llmModel: t.Optional(t.Union([t.String(), t.Null()])),
+      }),
+    }
+  )
+  .post(
+    "/me/test-connection",
+    async ({ body, set }) => {
+      const TEST_TIMEOUT_MS = 3000;
+      const baseUrl = body.baseUrl.replace(/\/+$/, "");
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+
+      try {
+        const res = await fetch(`${baseUrl}/models`, {
+          headers: body.apiKey
+            ? { Authorization: `Bearer ${body.apiKey}` }
+            : {},
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          return { ok: false, models: [], error: `API returned ${res.status}: ${res.statusText}` };
+        }
+
+        const json = await res.json();
+        const models: string[] = Array.isArray(json.data)
+          ? json.data.map((m: { id?: string }) => m.id).filter(Boolean)
+          : [];
+
+        return { ok: true, models, error: null };
+      } catch (err) {
+        const message = err instanceof Error
+          ? (err.name === "AbortError" ? "Connection timed out (3s)" : err.message)
+          : "Connection failed";
+        return { ok: false, models: [], error: message };
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+    {
+      body: t.Object({
+        baseUrl: t.String({ minLength: 1 }),
+        apiKey: t.Optional(t.String()),
       }),
     }
   );

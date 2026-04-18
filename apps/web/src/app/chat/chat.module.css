@@ -117,14 +117,32 @@
 
 /* ── Error bar ── */
 .errorBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 8px 16px;
   background: rgba(242, 63, 66, 0.08);
   border-top: 1px solid rgba(242, 63, 66, 0.2);
   color: var(--error);
   font-size: 0.8125rem;
-  text-align: center;
   flex-shrink: 0;
+  cursor: pointer;
 }
+
+.errorDismiss {
+  background: none;
+  border: none;
+  color: var(--error);
+  font-size: 0.875rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+  opacity: 0.7;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.errorDismiss:hover { opacity: 1; }
 
 /* ── Page container (inside chatContent) ── */
 .container {

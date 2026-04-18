@@ -51,3 +51,32 @@ export type Message = {
   content: string;
   createdAt: string;
 };
+
+export type MemoryFact = {
+  id: string;
+  source: string;
+  predicate: string;
+  target: string;
+};
+
+export type ConnectionTestResult = {
+  ok: boolean;
+  models: string[];
+  error: string | null;
+};
+
+export type ModelConfig = {
+  systemPromptOverride: string;
+  temperature: number;
+  topP: number;
+  maxTokens: number;
+  repPenalty: number;
+  negativePrompt: string;
+};
+
+export type MemorySummary = {
+  id: string;
+  content: string;
+  entityCount: number;
+  createdAt: string;
+};

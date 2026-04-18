@@ -15,6 +15,7 @@ services:
     ports:
       - "3000:3000"
       - "4000:4000"
+      - "4001:4001"
     environment:
       - DATABASE_URL=postgres://chatty:chatty@postgres:5432/chatty
     depends_on:
