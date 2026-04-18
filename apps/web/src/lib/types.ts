@@ -79,4 +79,14 @@ export type MemorySummary = {
   content: string;
   entityCount: number;
   createdAt: string;
+  updatedAt?: string;
+};
+
+export type SummaryEditorState = {
+  summary: string;
+  factCount: number;
+  updatedAt: string | null;
+  deltaFactCount: number;
+  deltaTokenEstimate: number;
+  messagesSinceUpdate: number;
 };

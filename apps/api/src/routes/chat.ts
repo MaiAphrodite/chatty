@@ -14,6 +14,9 @@ import {
   extractAndStore,
   getMemoryFacts,
   getMemorySummaries,
+  getSummaryEditorState,
+  saveManualSummary,
+  autoSummarizeMemory,
   addManualFact,
   updateMemoryFact,
   deleteMemoryFact,
@@ -172,6 +175,24 @@ function createOnCompleteCallback(
 
 export const chatRoutes = new Elysia({ prefix: "/chat" })
   .use(authGuard)
+  .derive(async ({ params, userId, request, set }) => {
+    const path = new URL(request.url).pathname;
+    if (!path.includes("/conversations/") || !(params as Record<string, unknown>)?.id) {
+      return { scopedConversation: null as { id: string; characterId: string } | null };
+    }
+
+    const conversation = await db.query.conversations.findFirst({
+      where: (c, { and, eq }) => and(eq(c.id, (params as { id: string }).id), eq(c.userId, userId!)),
+      columns: { id: true, characterId: true },
+    });
+
+    if (!conversation) {
+      set.status = 404;
+      return { scopedConversation: null as { id: string; characterId: string } | null };
+    }
+
+    return { scopedConversation: conversation };
+  })
   .get("/conversations", async ({ userId }) => {
     const result = await db.query.conversations.findMany({
       where: (c, { eq }) => eq(c.userId, userId!),
@@ -388,10 +409,8 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
   )
   .get(
     "/conversations/:id/context-stats",
-    async ({ params, userId }) => {
-      const conversation = await db.query.conversations.findFirst({
-        where: (c, { and, eq }) => and(eq(c.id, params.id), eq(c.userId, userId!)),
-      });
+    async ({ params, userId, scopedConversation }) => {
+      const conversation = scopedConversation;
       if (!conversation) return { messageCount: 0, estimatedTokens: 0, memoryTokens: 0 };
 
       const [msgs, memCtx] = await Promise.all([
@@ -414,12 +433,9 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
   )
   .post(
     "/conversations/:id/summarize",
-    async ({ params, userId, set }) => {
+    async ({ params, userId, set, scopedConversation }) => {
       try {
-        const conv = await db.query.conversations.findFirst({
-          where: eq(conversations.id, params.id),
-          columns: { characterId: true },
-        });
+        const conv = scopedConversation;
         if (!conv) { set.status = 404; return { message: "Conversation not found" }; }
         
         const result = await forceSummarize(conv.characterId, params.id, userId!);
@@ -434,11 +450,8 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
   )
   .get(
     "/conversations/:id/memories",
-    async ({ params, userId, set }) => {
-      const conv = await db.query.conversations.findFirst({
-        where: eq(conversations.id, params.id),
-        columns: { characterId: true },
-      });
+    async ({ params, userId, set, scopedConversation }) => {
+      const conv = scopedConversation;
       if (!conv) { set.status = 404; return { message: "Conversation not found" }; }
 
       const context = await buildMemoryContext(conv.characterId, params.id, userId!);
@@ -449,13 +462,47 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
     },
     { params: t.Object({ id: t.String({ format: "uuid" }) }) }
   )
+  .get(
+    "/conversations/:id/summary-editor",
+    async ({ params, userId, set, scopedConversation }) => {
+      const conv = scopedConversation;
+      if (!conv) { set.status = 404; return { message: "Conversation not found" }; }
+      return getSummaryEditorState(conv.characterId, params.id, userId!);
+    },
+    { params: t.Object({ id: t.String({ format: "uuid" }) }) }
+  )
+  .post(
+    "/conversations/:id/summary-editor/auto",
+    async ({ params, userId, body, set, scopedConversation }) => {
+      const conv = scopedConversation;
+      if (!conv) { set.status = 404; return { message: "Conversation not found" }; }
+      return autoSummarizeMemory(conv.characterId, params.id, userId!, body.mode);
+    },
+    {
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+      body: t.Object({ mode: t.Union([t.Literal("delta"), t.Literal("full")]) }),
+    }
+  )
+  .put(
+    "/conversations/:id/summary-editor",
+    async ({ params, userId, body, set, scopedConversation }) => {
+      const conv = scopedConversation;
+      if (!conv) { set.status = 404; return { message: "Conversation not found" }; }
+      if (!body.summary.trim()) {
+        set.status = 400;
+        return { message: "Summary cannot be empty" };
+      }
+      return saveManualSummary(conv.characterId, params.id, userId!, body.summary);
+    },
+    {
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+      body: t.Object({ summary: t.String({ minLength: 1, maxLength: 20000 }) }),
+    }
+  )
   .post(
     "/conversations/:id/memories",
-    async ({ params, userId, body, set }) => {
-      const conv = await db.query.conversations.findFirst({
-        where: eq(conversations.id, params.id),
-        columns: { characterId: true },
-      });
+    async ({ params, userId, body, set, scopedConversation }) => {
+      const conv = scopedConversation;
       if (!conv) { set.status = 404; return { message: "Conversation not found" }; }
 
       const id = await addManualFact(

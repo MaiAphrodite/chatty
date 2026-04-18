@@ -42,3 +42,22 @@ export const SUMMARIZATION_PROMPT = `You are a memory compression engine. Given 
 export function buildSummarizationUserPrompt(facts: string[]): string {
   return `Known facts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nCompress into a single concise paragraph.`;
 }
+
+export const INCREMENTAL_SUMMARIZATION_PROMPT = `You update a long-term memory summary.
+
+Rules:
+- Keep the prior summary's durable details unless contradicted by new facts.
+- Integrate new facts naturally into one coherent paragraph.
+- If a new fact conflicts with the prior summary, prefer the new fact.
+- Preserve concrete entities (names, places, relationships, dates, preferences).
+- Do not invent new facts.
+- Write in second person.`;
+
+export function buildIncrementalSummarizationUserPrompt(
+  currentSummary: string,
+  newFacts: string[],
+): string {
+  return `Current summary:\n${currentSummary}\n\nNew facts since the last summary update:\n${newFacts
+    .map((fact, index) => `${index + 1}. ${fact}`)
+    .join("\n")}\n\nReturn an updated single paragraph summary.`;
+}

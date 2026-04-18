@@ -18,7 +18,7 @@
 - Makes the code more explicit about which icons are being used
 
 **Alternatives Considered:**
-1. Keep the generic Icon component and add the missing icon definitions - rejected because the generic pattern wasn't being used elsewhere
+1. Keep the generic Icon component and add the missing icon definitions - rejected because the generic pattern was not being used elsewhere
 2. Create a separate icons index file - rejected as over-engineering for this use case
 
 **Related Files:**
@@ -92,3 +92,63 @@
 - `/apps/web/src/lib/api.ts`
 - `/apps/web/src/components/MessageRow.tsx`
 - `/apps/web/src/components/UserSettingsModal.tsx`
+
+---
+
+## Summary Editor + Layered Memory Injection
+
+**Date:** 2026-04-19
+
+**Decision:** Implemented a dedicated summary editor modal and switched memory injection to a layered strategy: inject summary first, then inject only post-summary TKG deltas.
+
+**Status:** Implemented
+
+**Why this was chosen:**
+- Inline read-only textbox plus single summarize button could not support explicit summary editing.
+- Concatenating full summary plus full graph wastes tokens and increases contradiction risk.
+- Layered summary plus delta-facts preserves coherence and recency without mutating canonical graph facts.
+
+**Implemented Backend Changes:**
+1. Added summary editor APIs in `chat` routes:
+   - `GET /chat/conversations/:id/summary-editor`
+   - `POST /chat/conversations/:id/summary-editor/auto` with `mode: "delta" | "full"`
+   - `PUT /chat/conversations/:id/summary-editor`
+2. Added summary services in `tkg.ts`:
+   - `getSummaryEditorState`
+   - `autoSummarizeMemory` (delta/full)
+   - `saveManualSummary`
+3. Updated memory context assembly:
+   - Summary block budgeted first (`SUMMARY_BUDGET_RATIO`)
+   - Recent updates packed from facts newer than `summary.updatedAt`
+   - Emits structured sections: `Long-term summary` and `Recent updates`
+4. Added observability fields in TKG logs for memory composition:
+   - `summaryTokens`, `deltaTokens`, `deltaFactCount`, `droppedFactCount`
+5. Tightened conversation scoping for memory and summary endpoints with shared route-level conversation lookup.
+
+**Implemented Frontend Changes:**
+1. Replaced inline summarize action with `Summary Editor` modal flow in `ModelRail`.
+2. Added modal UX matching requested behavior:
+   - Header plus helper text plus recency metadata
+   - Editable summary textarea
+   - `Auto Summary (Since last updated)` (delta)
+   - `Auto Summary (As far as possible)` (full)
+   - `Cancel` and `Save Summary`
+3. Added API client methods and shared types for summary editor state.
+4. Kept `chatty:memory-updated` event propagation to refresh rail data after auto and manual save actions.
+
+**Guardrails Preserved:**
+- TKG edges remain canonical source of truth.
+- Manual summary edits do not write back into graph edges.
+- Empty summary saves are rejected at API level.
+
+**Declutter Note:**
+- Consolidated prior proposal-only entries into this implemented ADR entry.
+
+**Related Files:**
+- `apps/api/src/routes/chat.ts`
+- `apps/api/src/services/tkg.ts`
+- `apps/api/src/services/tkg-prompts.ts`
+- `apps/web/src/components/Layout/ModelRail.tsx`
+- `apps/web/src/components/Layout/ModelRail.module.css`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/lib/types.ts`

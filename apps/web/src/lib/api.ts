@@ -1,4 +1,14 @@
-import type { User, Character, CharacterPayload, Conversation, Message, MemoryFact, MemorySummary, ConnectionTestResult } from "./types";
+import type {
+  User,
+  Character,
+  CharacterPayload,
+  Conversation,
+  Message,
+  MemoryFact,
+  MemorySummary,
+  ConnectionTestResult,
+  SummaryEditorState,
+} from "./types";
 
 const BASE = "/api";
 
@@ -172,6 +182,24 @@ export const api = {
 
   summarizeMemory(conversationId: string) {
     return request<{ factCount: number }>(`/chat/conversations/${conversationId}/summarize`, { method: "POST" });
+  },
+
+  getSummaryEditor(conversationId: string) {
+    return request<SummaryEditorState>(`/chat/conversations/${conversationId}/summary-editor`);
+  },
+
+  autoSummarizeMemory(conversationId: string, mode: "delta" | "full") {
+    return request<SummaryEditorState>(`/chat/conversations/${conversationId}/summary-editor/auto`, {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    });
+  },
+
+  saveSummary(conversationId: string, summary: string) {
+    return request<SummaryEditorState>(`/chat/conversations/${conversationId}/summary-editor`, {
+      method: "PUT",
+      body: JSON.stringify({ summary }),
+    });
   },
 
   getMemories(conversationId: string) {
