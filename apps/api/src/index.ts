@@ -4,6 +4,9 @@ import { db } from "./db";
 import { authRoutes } from "./routes/auth";
 import { chatRoutes } from "./routes/chat";
 import { characterRoutes } from "./routes/character";
+import { Logger } from "./services/logger";
+
+Logger.start();
 
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
 

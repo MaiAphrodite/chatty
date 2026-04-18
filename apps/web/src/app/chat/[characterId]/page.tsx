@@ -10,15 +10,6 @@ import { ChatInput } from "../../../components/ChatInput";
 import type { Message } from "../../../lib/types";
 import styles from "../chat.module.css";
 
-function shouldGroup(messages: Message[], index: number): boolean {
-  if (index === 0) return false;
-  const prev = messages[index - 1];
-  const curr = messages[index];
-  if (prev.role !== curr.role) return false;
-  const gap = new Date(curr.createdAt).getTime() - new Date(prev.createdAt).getTime();
-  return gap < 5 * 60 * 1000;
-}
-
 function EmptyState({ character }: { character: { avatarUrl?: string | null; name?: string; description?: string } | null }) {
   return (
     <div className={styles.empty}>
@@ -32,6 +23,14 @@ function EmptyState({ character }: { character: { avatarUrl?: string | null; nam
   );
 }
 
+function findPredecessorId(messages: Message[], assistantId: string): string | null {
+  const idx = messages.findIndex(m => m.id === assistantId);
+  for (let i = idx - 1; i >= 0; i--) {
+    if (messages[i].role !== "assistant") return messages[i].id;
+  }
+  return null;
+}
+
 export default function ChatCharacterPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -41,7 +40,9 @@ export default function ChatCharacterPage() {
 
   const {
     messages, character, isLoading, streamingMessageId, error,
-    sendMessage, deleteMessage, editMessage, continueMessage, rememberMessage,
+    variantGroups, activeVariants,
+    sendMessage, deleteMessage, editMessage, regenerateMessage,
+    continueMessage, rememberMessage, swipeVariant, dismissError,
   } = useChat({ characterId, conversationId: convId });
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -55,38 +56,72 @@ export default function ChatCharacterPage() {
     );
   }
 
-  const handleRegenerate = (index: number) => {
-    const userMsg = [...messages].slice(0, index).reverse().find((m) => m.role === "user");
-    if (userMsg) sendMessage(userMsg.content);
-  };
+  // Build the visible message list: only show the active variant per predecessor group
+  const visibleMessages: Message[] = [];
+  const seenAssistantGroups = new Set<string>();
+
+  for (const message of messages) {
+    if (message.role !== "assistant") {
+      visibleMessages.push(message);
+      continue;
+    }
+
+    // Find the predecessor group for this assistant message
+    const predId = findPredecessorId(messages, message.id) ?? "__root__";
+    if (seenAssistantGroups.has(predId)) continue; // already rendered this group
+    seenAssistantGroups.add(predId);
+
+    const variants = variantGroups.get(predId) ?? [message.id];
+    const activeIdx = activeVariants.get(predId) ?? variants.length - 1;
+    const activeId = variants[activeIdx];
+    const activeMsg = messages.find(m => m.id === activeId) ?? message;
+    visibleMessages.push(activeMsg);
+  }
 
   return (
     <div className={styles.container}>
       <CharacterHeader character={character} />
 
       <div className={styles.messages}>
-        {messages.length === 0 && <EmptyState character={character} />}
+        {visibleMessages.length === 0 && <EmptyState character={character} />}
 
-        {messages.map((message, index) => (
-          <MessageRow
-            key={message.id}
-            message={message}
-            senderName={message.role === "assistant" ? (character?.name ?? "Assistant") : (user?.username ?? "You")}
-            avatarUrl={message.role === "assistant" ? (character?.avatarUrl ?? null) : null}
-            isGrouped={shouldGroup(messages, index)}
-            isStreaming={message.id === streamingMessageId}
-            onRegenerate={message.role === "assistant" ? () => handleRegenerate(index) : undefined}
-            onContinue={message.role === "assistant" ? continueMessage : undefined}
-            onEdit={(newContent) => editMessage(message.id, newContent)}
-            onDelete={() => deleteMessage(message.id)}
-            onRemember={() => rememberMessage(message.id)}
-          />
-        ))}
+        {visibleMessages.map((message) => {
+          const predId = message.role === "assistant"
+            ? (findPredecessorId(messages, message.id) ?? "__root__")
+            : null;
+
+          const variants = predId ? (variantGroups.get(predId) ?? []) : [];
+          const activeIdx = predId ? (activeVariants.get(predId) ?? 0) : 0;
+
+          return (
+            <MessageRow
+              key={message.id}
+              message={message}
+              senderName={message.role === "assistant" ? (character?.name ?? "Assistant") : (user?.username ?? "You")}
+              avatarUrl={message.role === "assistant" ? (character?.avatarUrl ?? null) : null}
+              isStreaming={message.id === streamingMessageId}
+              variantCount={variants.length}
+              variantIndex={activeIdx}
+              onSwipePrev={predId && activeIdx > 0 ? () => swipeVariant(predId, -1) : undefined}
+              onSwipeNext={predId && activeIdx < variants.length - 1 ? () => swipeVariant(predId, 1) : undefined}
+              onRegenerate={message.role === "assistant" ? () => regenerateMessage(predId) : undefined}
+              onContinue={message.role === "assistant" ? continueMessage : undefined}
+              onEdit={(newContent) => editMessage(message.id, newContent)}
+              onDelete={() => deleteMessage(message.id)}
+              onRemember={() => rememberMessage(message.id)}
+            />
+          );
+        })}
 
         <div ref={bottomRef} style={{ height: 16 }} />
       </div>
 
-      {error && <div className={styles.errorBar}>{error}</div>}
+      {error && (
+        <div className={styles.errorBar} onClick={dismissError} title="Click to dismiss">
+          <span>{error}</span>
+          <button className={styles.errorDismiss} onClick={dismissError} aria-label="Dismiss error">✕</button>
+        </div>
+      )}
 
       <ChatInput
         onSend={sendMessage}

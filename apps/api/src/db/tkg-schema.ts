@@ -9,7 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { characters, users, messages } from "./schema";
+import { characters, users, messages, conversations } from "./schema";
 
 export const tkgEntities = pgTable(
   "tkg_entities",
@@ -18,6 +18,11 @@ export const tkgEntities = pgTable(
     characterId: uuid("character_id")
       .notNull()
       .references(() => characters.id, { onDelete: "cascade" }),
+    // Dual-scoping: if present, fact is isolated to a specific roleplay conversation.
+    // If null, fact is shared across all conversations with the character (v0.2 'chat' mode).
+    // Currently, we enforce 'roleplay' mode.
+    conversationId: uuid("conversation_id")
+      .references(() => conversations.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -35,8 +40,12 @@ export const tkgEntities = pgTable(
       .notNull(),
   },
   (table) => [
+    // In PG, nulls are distinct in unique constraints. For v0.2 chat mode (conversationId=null),
+    // this would allow duplicate entities. 
+    // For now we assume conversationId is ALWAYS provided (Roleplay mode).
     uniqueIndex("idx_tkg_entities_unique").on(
       table.characterId,
+      table.conversationId,
       table.userId,
       sql`lower(${table.name})`,
     ),
@@ -50,6 +59,8 @@ export const tkgEdges = pgTable(
     characterId: uuid("character_id")
       .notNull()
       .references(() => characters.id, { onDelete: "cascade" }),
+    conversationId: uuid("conversation_id")
+      .references(() => conversations.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -73,7 +84,7 @@ export const tkgEdges = pgTable(
       .notNull(),
   },
   (table) => [
-    index("idx_tkg_edges_active").on(table.characterId, table.userId).where(sql`${table.validUntil} IS NULL`),
+    index("idx_tkg_edges_active").on(table.characterId, table.conversationId, table.userId).where(sql`${table.validUntil} IS NULL`),
     index("idx_tkg_edges_source").on(table.sourceEntityId),
     index("idx_tkg_edges_target").on(table.targetEntityId),
   ],
@@ -86,6 +97,8 @@ export const tkgSummaries = pgTable(
     characterId: uuid("character_id")
       .notNull()
       .references(() => characters.id, { onDelete: "cascade" }),
+    conversationId: uuid("conversation_id")
+      .references(() => conversations.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -96,6 +109,6 @@ export const tkgSummaries = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("idx_tkg_summaries_unique").on(table.characterId, table.userId),
+    uniqueIndex("idx_tkg_summaries_unique").on(table.characterId, table.conversationId, table.userId),
   ],
 );

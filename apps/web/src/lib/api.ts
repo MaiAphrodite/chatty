@@ -1,4 +1,4 @@
-import type { User, Character, CharacterPayload, Conversation, Message } from "./types";
+import type { User, Character, CharacterPayload, Conversation, Message, MemoryFact, MemorySummary, ConnectionTestResult } from "./types";
 
 const BASE = "/api";
 
@@ -157,12 +157,69 @@ export const api = {
     });
   },
 
+  testConnection(baseUrl: string, apiKey?: string) {
+    return request<ConnectionTestResult>("/auth/me/test-connection", {
+      method: "POST",
+      body: JSON.stringify({ baseUrl, apiKey }),
+    });
+  },
+
+  getContextStats(conversationId: string) {
+    return request<{ messageCount: number; estimatedTokens: number; memoryTokens: number }>(
+      `/chat/conversations/${conversationId}/context-stats`,
+    );
+  },
+
+  summarizeMemory(conversationId: string) {
+    return request<{ factCount: number }>(`/chat/conversations/${conversationId}/summarize`, { method: "POST" });
+  },
+
+  getMemories(conversationId: string) {
+    return request<{ context: string | null; facts: MemoryFact[]; summaries: MemorySummary[] }>(
+      `/chat/conversations/${conversationId}/memories`,
+    );
+  },
+
+  addMemory(conversationId: string, source: string, predicate: string, target: string) {
+    return request<{ id: string }>(`/chat/conversations/${conversationId}/memories`, {
+      method: "POST",
+      body: JSON.stringify({ source, predicate, target }),
+    });
+  },
+
+  updateMemory(edgeId: string, data: { predicate?: string; target?: string }) {
+    return request<{ updated: boolean }>(`/chat/memories/${edgeId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteMemory(edgeId: string) {
+    return fetch(`${BASE}/chat/memories/${edgeId}`, {
+      method: "DELETE",
+      credentials: "include",
+    }).then((res) => {
+      if (!res.ok && res.status !== 204) {
+        throw new ApiError(res.status, `Delete failed (${res.status})`);
+      }
+    });
+  },
+
   async streamMessage(
     conversationId: string,
     content: string,
     onChunk: (text: string) => void,
     onDone: () => void,
     onError: (error: Error) => void,
+    config?: {
+      endpoint?: string;
+      temperature?: number;
+      topP?: number;
+      maxTokens?: number;
+      repPenalty?: number;
+      systemPrompt?: string;
+      negativePrompt?: string;
+    },
   ): Promise<void> {
     try {
       const response = await fetch(
@@ -171,7 +228,7 @@ export const api = {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content, ...config }),
         },
       );
 

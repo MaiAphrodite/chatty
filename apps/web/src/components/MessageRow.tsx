@@ -13,14 +13,17 @@ type MessageActions = {
   onEdit?: (newContent: string) => void;
   onDelete?: () => void;
   onRemember?: () => Promise<unknown>;
+  onSwipePrev?: () => void;
+  onSwipeNext?: () => void;
 };
 
 type MessageRowProps = {
   message: Message;
   senderName: string;
   avatarUrl: string | null;
-  isGrouped: boolean;
   isStreaming: boolean;
+  variantCount?: number;
+  variantIndex?: number;
 } & MessageActions;
 
 function formatTime(dateStr: string | undefined): string {
@@ -31,13 +34,7 @@ function formatTime(dateStr: string | undefined): string {
 }
 
 function StreamingIndicator({ hasContent }: { hasContent: boolean }) {
-  if (!hasContent) {
-    return (
-      <span className={styles.typing}>
-        <span /><span /><span />
-      </span>
-    );
-  }
+  if (!hasContent) return <span className={styles.typing}><span /><span /><span /></span>;
   return <span className={styles.cursor} />;
 }
 
@@ -59,11 +56,8 @@ function EditArea({ content, onSave, onCancel }: { content: string; onSave: (v: 
   return (
     <div className={styles.editArea}>
       <textarea
-        ref={ref}
-        className={styles.editTextarea}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        rows={3}
+        ref={ref} className={styles.editTextarea}
+        value={value} onChange={(e) => setValue(e.target.value)} rows={3}
       />
       <div className={styles.editActions}>
         <button className={styles.editSaveBtn} onClick={() => onSave(value)}>Save</button>
@@ -73,13 +67,32 @@ function EditArea({ content, onSave, onCancel }: { content: string; onSave: (v: 
   );
 }
 
-function ActionBar({ isUser, onRegenerate, onContinue, onEdit, onDelete, onRemember }: {
+function SwipeNav({ index, total, onPrev, onNext, onRegenerate }: {
+  index: number; total: number;
+  onPrev?: () => void; onNext?: () => void; onRegenerate?: () => void;
+}) {
+  return (
+    <div className={styles.swipeNav}>
+      <button className={styles.swipeBtn} onClick={onPrev} disabled={!onPrev} title="Previous response">‹</button>
+      <span className={styles.swipeCount}>{index + 1} / {total}</span>
+      <button className={styles.swipeBtn} onClick={onNext} disabled={!onNext} title="Next response">›</button>
+      {onRegenerate && (
+        <button className={styles.swipeRegenBtn} onClick={onRegenerate} title="Generate new response">
+          <RefreshCwIcon />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ActionBar({ isUser, onRegenerate, onContinue, onEdit, onDelete, onRemember, showRegenInSwipe }: {
   isUser: boolean;
   onRegenerate?: () => void;
   onContinue?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   onRemember?: () => Promise<unknown>;
+  showRegenInSwipe?: boolean;
 }) {
   const [remembered, setRemembered] = useState(false);
 
@@ -87,83 +100,56 @@ function ActionBar({ isUser, onRegenerate, onContinue, onEdit, onDelete, onRemem
     if (!onRemember || remembered) return;
     await onRemember();
     setRemembered(true);
+    window.dispatchEvent(new Event("chatty:memory-updated"));
     setTimeout(() => setRemembered(false), 2000);
   };
 
   return (
     <div className={styles.actionsBar}>
-      {!isUser && onRegenerate && (
-        <button className={styles.actionBtn} onClick={onRegenerate} title="Regenerate">
-          <RefreshCwIcon />
-        </button>
+      {!isUser && !showRegenInSwipe && onRegenerate && (
+        <button className={styles.actionBtn} onClick={onRegenerate} title="Regenerate"><RefreshCwIcon /></button>
       )}
       {!isUser && onContinue && (
-        <button className={styles.actionBtn} onClick={onContinue} title="Continue">
-          <ContinueIcon />
-        </button>
+        <button className={styles.actionBtn} onClick={onContinue} title="Continue"><ContinueIcon /></button>
       )}
       {onRemember && (
         <button
           className={`${styles.actionBtn} ${remembered ? styles.actionBtnSuccess : ""}`}
-          onClick={handleRemember}
-          title={remembered ? "Remembered!" : "Remember this"}
+          onClick={handleRemember} title={remembered ? "Remembered!" : "Remember this"}
         >
           <BookmarkIcon />
         </button>
       )}
       {onEdit && (
-        <button className={styles.actionBtn} onClick={onEdit} title="Edit">
-          <EditIcon />
-        </button>
+        <button className={styles.actionBtn} onClick={onEdit} title="Edit"><EditIcon /></button>
       )}
       {onDelete && (
-        <button className={`${styles.actionBtn} ${styles.actionBtnDanger}`} onClick={onDelete} title="Delete">
-          <TrashIcon />
-        </button>
+        <button className={`${styles.actionBtn} ${styles.actionBtnDanger}`} onClick={onDelete} title="Delete"><TrashIcon /></button>
       )}
     </div>
   );
 }
 
 export function MessageRow({
-  message, senderName, avatarUrl, isGrouped, isStreaming,
+  message, senderName, avatarUrl, isStreaming,
+  variantCount = 1, variantIndex = 0,
   onRegenerate, onContinue, onEdit, onDelete, onRemember,
+  onSwipePrev, onSwipeNext,
 }: MessageRowProps) {
   const isUser = message.role === "user";
   const [isEditing, setIsEditing] = useState(false);
+  const hasVariants = variantCount > 1;
 
-  const handleEditStart = () => setIsEditing(true);
-  const handleEditSave = (newContent: string) => {
-    onEdit?.(newContent);
-    setIsEditing(false);
-  };
-  const handleEditCancel = () => setIsEditing(false);
-
+  const handleEditSave = (newContent: string) => { onEdit?.(newContent); setIsEditing(false); };
   const actionBarProps = {
     isUser,
     onRegenerate,
     onContinue,
-    onEdit: onEdit ? handleEditStart : undefined,
+    onEdit: onEdit ? () => setIsEditing(true) : undefined,
     onDelete,
     onRemember,
+    showRegenInSwipe: hasVariants,
   };
-
-  if (isGrouped) {
-    return (
-      <div className={styles.row}>
-        <div className={styles.gutterCompact}>
-          <span className={styles.hoverTime}>{formatTime(message.createdAt)}</span>
-        </div>
-        <div className={styles.body}>
-          {isEditing
-            ? <EditArea content={message.content} onSave={handleEditSave} onCancel={handleEditCancel} />
-            : <MessageContent content={message.content} isStreaming={isStreaming} />
-          }
-        </div>
-        {!isStreaming && !isEditing && <ActionBar {...actionBarProps} />}
-      </div>
-    );
-  }
 
   return (
     <div className={styles.row}>
@@ -176,16 +162,29 @@ export function MessageRow({
           </div>
         )}
       </div>
+
       <div className={styles.body}>
         <div className={styles.header}>
           <span className={isUser ? styles.nameUser : styles.nameAssistant}>{senderName}</span>
           <span className={styles.timestamp}>{formatTime(message.createdAt)}</span>
         </div>
+
         {isEditing
-          ? <EditArea content={message.content} onSave={handleEditSave} onCancel={handleEditCancel} />
+          ? <EditArea content={message.content} onSave={handleEditSave} onCancel={() => setIsEditing(false)} />
           : <MessageContent content={message.content} isStreaming={isStreaming} />
         }
+
+        {!isStreaming && !isEditing && hasVariants && (
+          <SwipeNav
+            index={variantIndex}
+            total={variantCount}
+            onPrev={onSwipePrev}
+            onNext={onSwipeNext}
+            onRegenerate={onRegenerate}
+          />
+        )}
       </div>
+
       {!isStreaming && !isEditing && <ActionBar {...actionBarProps} />}
     </div>
   );

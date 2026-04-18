@@ -25,8 +25,8 @@ RUN cd apps/web && bun run build
 # ─── Supervisor config ───
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Expose ports: Next.js (3000), Elysia (4000)
-EXPOSE 3000 4000
+# Expose ports: Next.js (3000), Elysia (4000), Logger (4001)
+EXPOSE 3000 4000 4001
 
 ENV NODE_ENV=production
 
