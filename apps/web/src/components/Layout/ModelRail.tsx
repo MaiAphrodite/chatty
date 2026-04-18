@@ -668,7 +668,7 @@ function MemorySection({ characterId, conversationId }: { characterId: string; c
     );
   }
 
-  return (
+return (
     <div className={styles.memorySection}>
       <CollapsibleSection title="Context Window" defaultOpen>
         {conversationId && <ContextStatsPanel conversationId={conversationId} />}
@@ -677,7 +677,7 @@ function MemorySection({ characterId, conversationId }: { characterId: string; c
           <textarea
             className={styles.contextTextarea}
             value={context}
-            readOnly rows={3}
+            readOnly rows={4}
             title="Memory injected into each system prompt"
           />
         )}
@@ -695,6 +695,14 @@ function MemorySection({ characterId, conversationId }: { characterId: string; c
             />
           </div>
         </div>
+        <button
+          className={styles.summarizeBtn}
+          onClick={handleSummarize}
+          disabled={isSummarizing || (!context && facts.length === 0)}
+          title={!context && facts.length === 0 ? "No memory to compress" : "Compress memory into summary"}
+        >
+          {isSummarizing ? "Summarizing…" : "⚡ Compress to Summary"}
+        </button>
       </CollapsibleSection>
 
       <CollapsibleSection title="Knowledge Graph" defaultOpen>
@@ -718,14 +726,6 @@ function MemorySection({ characterId, conversationId }: { characterId: string; c
           ) : (
             <button className={styles.addFactBtn} onClick={() => setShowAddForm(true)}>+ Add fact</button>
           )}
-          <button
-            className={styles.summarizeBtn}
-            onClick={handleSummarize}
-            disabled={isSummarizing || facts.length === 0}
-            title={facts.length === 0 ? "No facts to summarize" : "Compress all facts into a summary"}
-          >
-            {isSummarizing ? "Summarizing…" : "⚡ Summarize"}
-          </button>
         </div>
       </CollapsibleSection>
 
