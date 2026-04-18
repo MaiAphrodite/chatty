@@ -183,7 +183,7 @@ function buildDetailedEdgeFilters(
     eq(tkgEdges.userId, userId),
     isNull(tkgEdges.validUntil),
   ];
-  if (options.after) filters.push(sql`${tkgEdges.createdAt} > ${options.after}`);
+  if (options.after) filters.push(sql`${tkgEdges.createdAt} > ${options.after.toISOString()}`);
   return filters;
 }
 
@@ -735,7 +735,7 @@ async function countMessagesSince(conversationId: string, since: Date | null): P
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(messages)
-    .where(and(eq(messages.conversationId, conversationId), sql`${messages.createdAt} > ${sinceDate}`));
+    .where(and(eq(messages.conversationId, conversationId), sql`${messages.createdAt} > ${sinceDate.toISOString()}`));
   return row?.count ?? 0;
 }
 
