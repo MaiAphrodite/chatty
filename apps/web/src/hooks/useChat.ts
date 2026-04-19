@@ -214,11 +214,21 @@ function buildRequestPayload(
   activeVariantIds: string[],
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = content ? { content } : {};
-  payload.temperature = config.temperature;
-  payload.topP = config.topP;
-  payload.maxTokens = config.maxTokens;
-  payload.frequencyPenalty = config.frequencyPenalty;
-  payload.presencePenalty = config.presencePenalty;
+  if (config.temperature !== DEFAULT_MODEL_CONFIG.temperature) {
+    payload.temperature = config.temperature;
+  }
+  if (config.topP !== DEFAULT_MODEL_CONFIG.topP) {
+    payload.topP = config.topP;
+  }
+  if (config.maxTokens !== DEFAULT_MODEL_CONFIG.maxTokens) {
+    payload.maxTokens = config.maxTokens;
+  }
+  if (config.frequencyPenalty !== DEFAULT_MODEL_CONFIG.frequencyPenalty) {
+    payload.frequencyPenalty = config.frequencyPenalty;
+  }
+  if (config.presencePenalty !== DEFAULT_MODEL_CONFIG.presencePenalty) {
+    payload.presencePenalty = config.presencePenalty;
+  }
   if (config.systemPromptOverride) payload.systemPrompt = config.systemPromptOverride;
   if (config.negativePrompt) payload.negativePrompt = config.negativePrompt;
   if (hasVariants && activeVariantIds.length > 0) payload.activeAssistantMessageIds = activeVariantIds;

@@ -185,7 +185,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             onClick={handleTestConnection}
             disabled={!llmEndpoint.trim() || connectionStatus === "testing"}
           >
-            {connectionStatus === "testing" ? "Testing…" : "🔌 Test Connection"}
+            {connectionStatus === "testing" ? "Testing..." : "Test Connection"}
           </button>
 
           {statusIndicator}

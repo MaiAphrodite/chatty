@@ -4,49 +4,21 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../lib/api";
 import type { Conversation } from "../lib/types";
+import {
+  ContinueIcon,
+  DotsIcon,
+  HashtagIcon,
+  PlusIcon,
+  XIcon,
+} from "./ui/Icons";
 import styles from "./CharacterMenu.module.css";
 
-function DotsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="12" cy="5" r="2" />
-      <circle cx="12" cy="12" r="2" />
-      <circle cx="12" cy="19" r="2" />
-    </svg>
-  );
-}
-
 function ChatIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
+  return <ContinueIcon size={18} />;
 }
 
 function MemoryIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 2a9 9 0 0 1 9 9v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1" />
-      <path d="M12 13v7M9 16h6" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M18 6L6 18M6 6l12 12" />
-    </svg>
-  );
+  return <HashtagIcon />;
 }
 
 type CharacterMenuProps = {
@@ -105,7 +77,7 @@ export function CharacterMenu({ characterId, characterName }: CharacterMenuProps
   return (
     <div className={styles.menuButton} ref={menuRef} style={{ position: "relative" }}>
       <button onClick={handleToggle}>
-        <DotsIcon />
+        <DotsIcon size={20} />
       </button>
 
       {isOpen && (
@@ -124,7 +96,7 @@ export function CharacterMenu({ characterId, characterName }: CharacterMenuProps
             </button>
 
             <button className={styles.menuItem} onClick={handleNewChat}>
-              <PlusIcon />
+              <PlusIcon size={18} />
               <span>New Chat</span>
             </button>
 
@@ -161,7 +133,7 @@ export function CharacterMenu({ characterId, characterName }: CharacterMenuProps
                 className={styles.modalClose}
                 onClick={() => setShowHistory(false)}
               >
-                <CloseIcon />
+                <XIcon size={18} />
               </button>
             </div>
             {conversations.length === 0 ? (

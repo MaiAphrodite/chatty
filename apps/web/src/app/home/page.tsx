@@ -9,7 +9,7 @@ import { ServerRail } from "../../components/Layout/ServerRail";
 import { ContextSidebar } from "../../components/Layout/ContextSidebar";
 import { CharacterModal } from "../../components/CharacterModal";
 import { useLayout } from "../../hooks/useLayout";
-import { HamburgerIcon } from "../../components/ui/Icons";
+import { HamburgerIcon, HashtagIcon } from "../../components/ui/Icons";
 import styles from "./home.module.css";
 
 function CreateModalHandler({ onOpen }: { onOpen: () => void }) {
@@ -141,10 +141,7 @@ function EmptyState() {
   return (
     <div className={styles.empty}>
       <div className={styles.emptyIcon}>
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" />
-        </svg>
+        <HashtagIcon />
       </div>
       <h2 className={styles.emptyTitle}>No characters yet</h2>
       <p className={styles.emptyText}>Create your first character to get started.</p>
