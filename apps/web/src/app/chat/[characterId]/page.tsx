@@ -6,6 +6,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../hooks/useChat";
 import { CharacterHeader } from "../../../components/CharacterHeader";
 import { MessageRow } from "../../../components/MessageRow";
+import { XIcon } from "../../../components/ui/Icons";
 import { ChatInput } from "../../../components/ChatInput";
 import type { Message } from "../../../lib/types";
 import styles from "../chat.module.css";
@@ -119,7 +120,7 @@ export default function ChatCharacterPage() {
       {error && (
         <div className={styles.errorBar} onClick={dismissError} title="Click to dismiss">
           <span>{error}</span>
-          <button className={styles.errorDismiss} onClick={dismissError} aria-label="Dismiss error">✕</button>
+          <button className={styles.errorDismiss} onClick={dismissError} aria-label="Dismiss error"><XIcon size={14} /></button>
         </div>
       )}
 

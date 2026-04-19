@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, type FormEvent, type KeyboardEvent } from "react";
+import { ContinueIcon } from "./ui/Icons";
 import styles from "./ChatInput.module.css";
 
 type ChatInputProps = {
@@ -62,14 +63,7 @@ export function ChatInput({ onSend, disabled, characterName }: ChatInputProps) {
           disabled={disabled || !value.trim()}
           aria-label="Send message"
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-          </svg>
+          <ContinueIcon size={20} />
         </button>
       </form>
     </div>

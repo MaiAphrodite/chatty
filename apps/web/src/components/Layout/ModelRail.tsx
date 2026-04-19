@@ -21,7 +21,14 @@ import {
 } from "../../lib/layout-events";
 import type { Character, MemoryFact, MemorySummary, ModelConfig, SummaryEditorState } from "../../lib/types";
 import { useAuth } from "../../contexts/AuthContext";
-import { DatabaseIcon, MessagesSquareIcon, XIcon } from "@/components/ui/Icons";
+import {
+  CheckIcon,
+  DatabaseIcon,
+  EditIcon,
+  MessagesSquareIcon,
+  TrashIcon,
+  XIcon,
+} from "@/components/ui/Icons";
 import styles from "./ModelRail.module.css";
 
 // ─── Local Sampling Config ─────────────────────────────────────────────────────
@@ -405,7 +412,7 @@ function GlobalApiSettings() {
         onClick={s.testConnection}
         disabled={!s.llmEndpoint.trim() || s.connectionStatus === "testing"}
       >
-        {s.connectionStatus === "testing" ? "Testing…" : "🔌 Test Connection"}
+        {s.connectionStatus === "testing" ? "Testing..." : "Test Connection"}
       </button>
 
       <ConnectionStatusIndicator
@@ -428,7 +435,7 @@ function GlobalApiSettings() {
         onClick={s.saveSettings}
         disabled={s.isSubmitting}
       >
-        {s.isSubmitting ? "Saving..." : s.saveSuccess ? "Saved ✓" : "Save Global Settings"}
+        {s.isSubmitting ? "Saving..." : s.saveSuccess ? "Saved" : "Save Global Settings"}
       </button>
     </div>
   );
@@ -532,8 +539,8 @@ function FactRow({ fact, onEdit, onDelete }: {
         <strong>{fact.target}</strong>
       </span>
       <div className={styles.factActions}>
-        <button className={styles.factBtn} onClick={() => onEdit(fact.id, fact.predicate, fact.target)} title="Edit">✏️</button>
-        <button className={styles.factBtn} onClick={() => onDelete(fact.id)} title="Delete">🗑</button>
+        <button className={styles.factBtn} onClick={() => onEdit(fact.id, fact.predicate, fact.target)} title="Edit"><EditIcon size={14} /></button>
+        <button className={styles.factBtn} onClick={() => onDelete(fact.id)} title="Delete"><TrashIcon size={14} /></button>
       </div>
     </div>
   );
@@ -553,8 +560,8 @@ function FactEditRow({ fact, onSave, onCancel }: {
         <span className={styles.factSource}>{fact.source}</span>
         <input className={styles.factEditInput} value={predicate} onChange={(e) => setPredicate(e.target.value)} placeholder="predicate" />
         <input className={styles.factEditInput} value={target} onChange={(e) => setTarget(e.target.value)} placeholder="target" />
-        <button className={styles.factSaveBtn} onClick={() => onSave(fact.id, predicate, target)}>✓</button>
-        <button className={styles.factCancelBtn} onClick={onCancel}>✕</button>
+        <button className={styles.factSaveBtn} onClick={() => onSave(fact.id, predicate, target)}><CheckIcon size={14} /></button>
+        <button className={styles.factCancelBtn} onClick={onCancel}><XIcon size={14} /></button>
       </div>
     </div>
   );

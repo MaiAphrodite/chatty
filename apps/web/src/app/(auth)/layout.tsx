@@ -1,4 +1,5 @@
 import styles from "./auth.module.css";
+import { HomeIcon } from "../../components/ui/Icons";
 
 export default function AuthLayout({
   children,
@@ -8,7 +9,7 @@ export default function AuthLayout({
   return (
     <div className={styles.container}>
       <div className={styles.card}>
-        <div className={styles.logo}>🐱</div>
+        <div className={styles.logo}><HomeIcon size={48} /></div>
         {children}
       </div>
     </div>
