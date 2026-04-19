@@ -380,3 +380,37 @@
 - `apps/api/src/services/tkg.ts`
 - `supervisord.conf`
 - `.github/workflows/ci.yml`
+
+---
+
+## Summary Source Correction: Rolling Window over TKG Facts
+
+**Date:** 2026-04-19
+
+**Decision:** Corrected summary editor auto actions to summarize the rolling conversation window (messages) instead of summarizing only existing TKG facts.
+
+**Status:** Implemented
+
+**Problem:**
+- The summary editor auto flow previously called TKG fact summarization.
+- This was semantically wrong for user intent: summarizing facts only re-compresses what is already extracted, rather than summarizing the current conversation window.
+
+**Fix Applied:**
+1. Added rolling-window summarization pipeline in `tkg.ts`:
+   - loads recent conversation messages (`ROLLING_WINDOW_MESSAGE_LIMIT`)
+   - full mode summarizes the current rolling transcript
+   - delta mode incrementally updates previous summary from messages newer than summary watermark
+2. Added conversation-based summarization prompts in `tkg-prompts.ts` for full and incremental message summarization.
+3. Switched route `/chat/conversations/:id/summary-editor/auto` to call rolling-window summarization service.
+4. Updated summary editor helper copy in UI to reflect message-window behavior.
+
+**Resulting Semantics:**
+- `Auto Summary (As far as possible)` => summarize rolling conversation transcript.
+- `Auto Summary (Since last updated)` => update summary from message deltas since last summary update.
+- TKG remains canonical for graph facts and context layering, but is no longer incorrectly used as the source for summary-editor auto generation.
+
+**Related Files:**
+- `apps/api/src/services/tkg.ts`
+- `apps/api/src/services/tkg-prompts.ts`
+- `apps/api/src/routes/chat.ts`
+- `apps/web/src/components/Layout/ModelRail.tsx`

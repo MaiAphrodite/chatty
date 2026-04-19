@@ -684,7 +684,7 @@ function SummaryEditorModal({
 
         <div className={styles.summaryBody}>
           <p className={styles.summaryHint}>
-            Enter a summary for your chat. This will be included into the prompt as long-term memory.
+            Enter a summary for your chat. Auto-summary uses the rolling conversation window and updates long-term memory.
           </p>
           <p className={styles.summaryMetaLine}>{updatedMeta}</p>
           {deltaMeta && <p className={styles.summaryMetaLine}>{deltaMeta}</p>}
