@@ -19,6 +19,7 @@ type DeleteState =
 
 type HomeSidebarProps = {
   isSidebarOpen: boolean;
+  onRequestClose?: () => void;
 };
 
 function useMyCharacters() {
@@ -43,18 +44,13 @@ function emitCharactersChanged() {
   window.dispatchEvent(new Event("characters:changed"));
 }
 
-export function HomeSidebar({ isSidebarOpen }: HomeSidebarProps) {
+export function HomeSidebar({ isSidebarOpen, onRequestClose }: HomeSidebarProps) {
   const { characters, refresh } = useMyCharacters();
   const [modal, setModal] = useState<ModalState>({ open: false });
   const [deleteState, setDeleteState] = useState<DeleteState>({ pending: false });
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const sidebarStyle = {
-    width: isSidebarOpen ? "var(--context-sidebar-width)" : 0,
-    opacity: isSidebarOpen ? 1 : 0,
-    borderRightWidth: isSidebarOpen ? 1 : 0,
-    overflow: "hidden" as const,
-  };
+  const sidebarClassName = `${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : styles.sidebarClosed}`;
 
   const handleModalSuccess = () => {
     setModal({ open: false });
@@ -78,7 +74,12 @@ export function HomeSidebar({ isSidebarOpen }: HomeSidebarProps) {
 
   return (
     <>
-      <aside className={styles.sidebar} style={sidebarStyle}>
+      <div
+        className={`${styles.mobileBackdrop} ${isSidebarOpen ? styles.mobileBackdropVisible : ""}`}
+        onClick={() => onRequestClose?.()}
+        aria-hidden={!isSidebarOpen}
+      />
+      <aside className={sidebarClassName}>
         <header className={styles.header}>
           <span className={ownStyles.headerTitle}>Characters</span>
         </header>

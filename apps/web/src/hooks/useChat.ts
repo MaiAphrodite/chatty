@@ -3,32 +3,22 @@
 import { useReducer, useEffect, useCallback, useRef } from "react";
 import { api } from "../lib/api";
 import type { Conversation, Character, Message, ModelConfig } from "../lib/types";
+import {
+  DEFAULT_MODEL_CONFIG,
+  loadModelConfig,
+  MODEL_CONFIG_UPDATED_EVENT,
+  sanitizeModelConfig,
+  type ModelConfigUpdatedDetail,
+} from "../lib/model-config";
 
 const MEMORY_UPDATED_EVENT = "chatty:memory-updated";
-
-
-const DEFAULT_MODEL_CONFIG: ModelConfig = {
-  systemPromptOverride: "",
-  temperature: 0.8,
-  topP: 0.9,
-  maxTokens: 2048,
-  repPenalty: 1.1,
-  negativePrompt: "",
-};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type UseChatOptions = {
   characterId?: string;
   conversationId?: string;
-  modelConfig?: {
-    systemPromptOverride?: string;
-    temperature?: number;
-    topP?: number;
-    maxTokens?: number;
-    repPenalty?: number;
-    negativePrompt?: string;
-  };
+  modelConfig?: Partial<ModelConfig>;
 };
 
 type ChatState = {
@@ -206,17 +196,6 @@ async function findOrCreateConversation(characterId: string): Promise<{ conversa
   return { conversation, character };
 }
 
-function loadModelConfigFromStorage(characterId: string | undefined): ModelConfig {
-  if (!characterId) return DEFAULT_MODEL_CONFIG;
-  try {
-    const raw = localStorage.getItem(`chatty:model-config:${characterId}`);
-    if (!raw) return DEFAULT_MODEL_CONFIG;
-    return { ...DEFAULT_MODEL_CONFIG, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULT_MODEL_CONFIG;
-  }
-}
-
 // TKG extraction is async and can take anywhere from 3s (fast models) to 60s
 // (reasoning models). Fire the event in waves so the rail always reflects the
 // final extracted state without the user needing to manually refresh.
@@ -235,11 +214,12 @@ function buildRequestPayload(
   activeVariantIds: string[],
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = content ? { content } : {};
+  payload.temperature = config.temperature;
+  payload.topP = config.topP;
+  payload.maxTokens = config.maxTokens;
+  payload.frequencyPenalty = config.frequencyPenalty;
+  payload.presencePenalty = config.presencePenalty;
   if (config.systemPromptOverride) payload.systemPrompt = config.systemPromptOverride;
-  if (config.temperature !== DEFAULT_MODEL_CONFIG.temperature) payload.temperature = config.temperature;
-  if (config.topP !== DEFAULT_MODEL_CONFIG.topP) payload.topP = config.topP;
-  if (config.maxTokens !== DEFAULT_MODEL_CONFIG.maxTokens) payload.maxTokens = config.maxTokens;
-  if (config.repPenalty !== DEFAULT_MODEL_CONFIG.repPenalty) payload.repPenalty = config.repPenalty;
   if (config.negativePrompt) payload.negativePrompt = config.negativePrompt;
   if (hasVariants && activeVariantIds.length > 0) payload.activeAssistantMessageIds = activeVariantIds;
   return payload;
@@ -264,11 +244,29 @@ export function useChat({ characterId, conversationId, modelConfig: explicitConf
   const [state, dispatch] = useReducer(chatReducer, initialState);
   const abortRef = useRef<AbortController | null>(null);
   const convRef = useRef<Conversation | null>(null);
+  const configRef = useRef<ModelConfig>(DEFAULT_MODEL_CONFIG);
   convRef.current = state.conversation;
 
-  const effectiveConfig: ModelConfig = explicitConfig
-    ? { ...DEFAULT_MODEL_CONFIG, ...explicitConfig }
-    : loadModelConfigFromStorage(characterId);
+  useEffect(() => {
+    configRef.current = explicitConfig
+      ? sanitizeModelConfig({ ...DEFAULT_MODEL_CONFIG, ...explicitConfig })
+      : loadModelConfig(characterId);
+  }, [characterId, explicitConfig]);
+
+  useEffect(() => {
+    if (explicitConfig || !characterId) return;
+
+    const handleConfigUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<ModelConfigUpdatedDetail>;
+      if (customEvent.detail?.characterId !== characterId) return;
+      configRef.current = sanitizeModelConfig(customEvent.detail.config);
+    };
+
+    window.addEventListener(MODEL_CONFIG_UPDATED_EVENT, handleConfigUpdated);
+    return () => {
+      window.removeEventListener(MODEL_CONFIG_UPDATED_EVENT, handleConfigUpdated);
+    };
+  }, [characterId, explicitConfig]);
 
   useEffect(() => {
     let cancelled = false;
@@ -329,7 +327,7 @@ export function useChat({ characterId, conversationId, modelConfig: explicitConf
 
     try {
       abortRef.current = new AbortController();
-      const payload = buildRequestPayload(content, effectiveConfig, hasVariants, activeVariantIds);
+      const payload = buildRequestPayload(content, configRef.current, hasVariants, activeVariantIds);
       const response = await fetch(`/api/chat/conversations/${conversation.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -358,7 +356,7 @@ export function useChat({ characterId, conversationId, modelConfig: explicitConf
         setTimeout(() => dispatch({ type: "DISMISS_ERROR" }), 8000);
       }
     }
-  }, [state.streamingMessageId, state.activeVariants, state.variantGroups, effectiveConfig]);
+  }, [state.streamingMessageId, state.messages, state.activeVariants, state.variantGroups, state.realMessageIds]);
 
   const regenerateMessage = useCallback(async (predecessorId: string | null) => {
     // Non-destructive: do NOT delete the old message. Just stream a new variant.

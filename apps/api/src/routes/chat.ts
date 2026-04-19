@@ -242,13 +242,32 @@ function assembleStreamOptions(
   llmMessages: ReturnType<typeof buildLlmMessages>,
   modelId: string,
   provider: ReturnType<typeof createOpenAI>,
-  params: { temperature?: number; topP?: number; maxTokens?: number; repPenalty?: number },
+  params: {
+    temperature?: number;
+    topP?: number;
+    maxTokens?: number;
+    frequencyPenalty?: number;
+    presencePenalty?: number;
+    repPenalty?: number;
+  },
 ): Parameters<typeof streamText>[0] {
   const opts: Parameters<typeof streamText>[0] = { model: provider(modelId), messages: llmMessages };
-  if (params.temperature !== undefined) opts.temperature = params.temperature;
-  if (params.topP !== undefined) opts.topP = params.topP;
-  if (params.maxTokens !== undefined) opts.maxTokens = params.maxTokens;
-  if (params.repPenalty !== undefined) opts.frequencyPenalty = params.repPenalty;
+  if (params.temperature !== undefined) {
+    opts.temperature = Math.min(2, Math.max(0, params.temperature));
+  }
+  if (params.topP !== undefined) {
+    opts.topP = Math.min(1, Math.max(0, params.topP));
+  }
+  if (params.maxTokens !== undefined) {
+    opts.maxTokens = Math.max(1, Math.round(params.maxTokens));
+  }
+  const resolvedFrequencyPenalty = params.frequencyPenalty ?? params.repPenalty;
+  if (resolvedFrequencyPenalty !== undefined) {
+    opts.frequencyPenalty = Math.min(2, Math.max(-2, resolvedFrequencyPenalty));
+  }
+  if (params.presencePenalty !== undefined) {
+    opts.presencePenalty = Math.min(2, Math.max(-2, params.presencePenalty));
+  }
   return opts;
 }
 
@@ -392,10 +411,23 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
           buildLlmMessages(systemPrompt, prunedHistory),
           modelId,
           openaiProvider,
-          { temperature: body.temperature, topP: body.topP, maxTokens: body.maxTokens, repPenalty: body.repPenalty },
+          {
+            temperature: body.temperature,
+            topP: body.topP,
+            maxTokens: body.maxTokens,
+            frequencyPenalty: body.frequencyPenalty,
+            presencePenalty: body.presencePenalty,
+            repPenalty: body.repPenalty,
+          },
         );
 
-        Logger.info("LLM", `Stream init: ${modelId} @ ${baseUrl}`, { temperature: streamOptions.temperature, topP: streamOptions.topP });
+        Logger.info("LLM", `Stream init: ${modelId} @ ${baseUrl}`, {
+          temperature: streamOptions.temperature,
+          topP: streamOptions.topP,
+          maxTokens: streamOptions.maxTokens,
+          frequencyPenalty: streamOptions.frequencyPenalty,
+          presencePenalty: streamOptions.presencePenalty,
+        });
         const result = streamText(streamOptions);
         const onComplete = createOnCompleteCallback(
           conversation.character.memoryMode,
@@ -422,6 +454,8 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
         temperature: t.Optional(t.Number()),
         topP: t.Optional(t.Number()),
         maxTokens: t.Optional(t.Number()),
+        frequencyPenalty: t.Optional(t.Number()),
+        presencePenalty: t.Optional(t.Number()),
         repPenalty: t.Optional(t.Number()),
         systemPrompt: t.Optional(t.String()),
         negativePrompt: t.Optional(t.String()),

@@ -13,6 +13,7 @@ import localStyles from "./CharacterSidebar.module.css";
 type CharacterSidebarProps = {
   characterId: string;
   isSidebarOpen: boolean;
+  onRequestClose?: () => void;
 };
 
 // ─── Date label ───────────────────────────────────────────────────────────────
@@ -152,7 +153,7 @@ function ConvRow({ conv, characterId, currentConvId, onRenamed, onDeleted }: {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function CharacterSidebar({ characterId, isSidebarOpen }: CharacterSidebarProps) {
+export function CharacterSidebar({ characterId, isSidebarOpen, onRequestClose }: CharacterSidebarProps) {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -160,12 +161,7 @@ export function CharacterSidebar({ characterId, isSidebarOpen }: CharacterSideba
   const [isCategoryOpen, setIsCategoryOpen] = useState(true);
   const { character, convos, reload } = useCharacterSidebarData(characterId, user);
 
-  const sidebarStyle = {
-    width: isSidebarOpen ? "var(--context-sidebar-width)" : 0,
-    opacity: isSidebarOpen ? 1 : 0,
-    borderRightWidth: isSidebarOpen ? 1 : 0,
-    overflow: "hidden" as const,
-  };
+  const sidebarClassName = `${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : styles.sidebarClosed}`;
 
   const handleNewChat = async () => {
     const conv = await api.createConversation(characterId).catch(console.error);
@@ -183,41 +179,48 @@ export function CharacterSidebar({ characterId, isSidebarOpen }: CharacterSideba
   };
 
   return (
-    <aside className={styles.sidebar} style={sidebarStyle}>
-      <header className={styles.headerInteractive}>
-        <h2 className={styles.serverTitle}>{character?.name ?? "Loading..."}</h2>
-        <button className={localStyles.newChatBtn} onClick={handleNewChat} title="New conversation">
-          <PlusIcon size={16} />
-        </button>
-      </header>
+    <>
+      <div
+        className={`${styles.mobileBackdrop} ${isSidebarOpen ? styles.mobileBackdropVisible : ""}`}
+        onClick={() => onRequestClose?.()}
+        aria-hidden={!isSidebarOpen}
+      />
+      <aside className={sidebarClassName}>
+        <header className={styles.headerInteractive}>
+          <h2 className={styles.serverTitle}>{character?.name ?? "Loading..."}</h2>
+          <button className={localStyles.newChatBtn} onClick={handleNewChat} title="New conversation">
+            <PlusIcon size={16} />
+          </button>
+        </header>
 
-      <div className={styles.scroller}>
-        <div
-          className={`${styles.category} ${!isCategoryOpen ? styles.categoryClosed : ""}`}
-          onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-        >
-          <ChevronDownIcon />
-          <span>HISTORY</span>
-        </div>
-
-        {isCategoryOpen && (
-          <div className={styles.channelList}>
-            {convos.length === 0 && (
-              <p className={localStyles.emptyHint}>No conversations yet.</p>
-            )}
-            {convos.map((conv) => (
-              <ConvRow
-                key={conv.id}
-                conv={conv}
-                characterId={characterId}
-                currentConvId={currentConvId}
-                onRenamed={handleRenamed}
-                onDeleted={handleDeleted}
-              />
-            ))}
+        <div className={styles.scroller}>
+          <div
+            className={`${styles.category} ${!isCategoryOpen ? styles.categoryClosed : ""}`}
+            onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+          >
+            <ChevronDownIcon />
+            <span>HISTORY</span>
           </div>
-        )}
-      </div>
-    </aside>
+
+          {isCategoryOpen && (
+            <div className={styles.channelList}>
+              {convos.length === 0 && (
+                <p className={localStyles.emptyHint}>No conversations yet.</p>
+              )}
+              {convos.map((conv) => (
+                <ConvRow
+                  key={conv.id}
+                  conv={conv}
+                  characterId={characterId}
+                  currentConvId={currentConvId}
+                  onRenamed={handleRenamed}
+                  onDeleted={handleDeleted}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }

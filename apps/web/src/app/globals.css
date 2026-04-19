@@ -76,6 +76,14 @@
   --model-rail-width:      260px;
 }
 
+@media (max-width: 767px) {
+  :root {
+    --server-rail-width: 60px;
+    --context-sidebar-width: min(320px, 82vw);
+    --model-rail-width: min(360px, 88vw);
+  }
+}
+
 html {
   font-family: var(--font-sans);
   font-size: 16px;

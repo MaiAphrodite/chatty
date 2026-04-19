@@ -178,8 +178,21 @@
 
 /* ── Mobile ── */
 @media (max-width: 767px) {
+  .topbar {
+    padding: 0 10px;
+  }
+
+  .topbarTitle {
+    font-size: 0.9375rem;
+  }
+
+  .content {
+    padding: 14px 10px;
+  }
+
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
   }
 
   .createButton span {

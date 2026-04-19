@@ -29,7 +29,7 @@
 
 .itemWrapper {
   position: relative;
-  width: 72px;
+  width: var(--server-rail-width, 72px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -158,7 +158,7 @@
 
 /* Non-pill control items at bottom of rail */
 .userItem {
-  width: 72px;
+  width: var(--server-rail-width, 72px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -199,4 +199,20 @@
   font-size: 1.125rem;
   border: 1px solid var(--border-subtle);
   cursor: default;
+}
+
+@media (max-width: 767px) {
+  .homeButton,
+  .serverIcon,
+  .addButton,
+  .settingsButton,
+  .userAvatar {
+    width: 42px;
+    height: 42px;
+  }
+
+  .avatarFallback,
+  .userAvatar {
+    font-size: 1rem;
+  }
 }

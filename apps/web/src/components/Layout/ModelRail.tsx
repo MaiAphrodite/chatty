@@ -1,84 +1,63 @@
 "use client";
 
-import { useReducer, useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useSearchParams } from "next/navigation";
 import { api } from "../../lib/api";
-import type { MemoryFact, MemorySummary, Character, SummaryEditorState } from "../../lib/types";
+import {
+  DEFAULT_MODEL_CONFIG,
+  MODEL_CONFIG_LIMITS,
+  loadModelConfig,
+  notifyModelConfigUpdated,
+  saveModelConfig,
+  sanitizeModelConfig,
+} from "../../lib/model-config";
+import {
+  MOBILE_LAYOUT_MEDIA_QUERY,
+  SET_MODEL_RAIL_EVENT,
+  SET_SIDEBAR_EVENT,
+  TOGGLE_MODEL_RAIL_EVENT,
+  type PanelSetDetail,
+} from "../../lib/layout-events";
+import type { Character, MemoryFact, MemorySummary, ModelConfig, SummaryEditorState } from "../../lib/types";
 import { useAuth } from "../../contexts/AuthContext";
 import { DatabaseIcon, MessagesSquareIcon, XIcon } from "@/components/ui/Icons";
 import styles from "./ModelRail.module.css";
 
 // ─── Local Sampling Config ─────────────────────────────────────────────────────
 
-type ModelConfig = {
-  systemPromptOverride: string;
-  temperature: number;
-  topP: number;
-  maxTokens: number;
-  repPenalty: number;
-  negativePrompt: string;
-};
-
-const CONFIG_DEFAULTS: ModelConfig = {
-  systemPromptOverride: "",
-  temperature: 0.8,
-  topP: 0.9,
-  maxTokens: 2048,
-  repPenalty: 1.1,
-  negativePrompt: "",
-};
-
-type ConfigAction = { type: "SET"; key: keyof ModelConfig; value: string | number } | { type: "RESET" };
-
-function configReducer(state: ModelConfig, action: ConfigAction): ModelConfig {
-  if (action.type === "RESET") return CONFIG_DEFAULTS;
-  return { ...state, [action.key]: action.value };
-}
-
-function loadConfig(characterId: string): ModelConfig {
-  try {
-    const raw = localStorage.getItem(`chatty:model-config:${characterId}`);
-    if (!raw) return CONFIG_DEFAULTS;
-    const parsed = JSON.parse(raw);
-    delete parsed.endpointOverride;
-    return { ...CONFIG_DEFAULTS, ...parsed };
-  } catch {
-    return CONFIG_DEFAULTS;
-  }
-}
-
-function saveConfig(characterId: string, config: ModelConfig) {
-  localStorage.setItem(`chatty:model-config:${characterId}`, JSON.stringify(config));
-}
-
 export function useModelConfig(characterId: string | undefined) {
-  const [config, dispatch] = useReducer(configReducer, CONFIG_DEFAULTS);
+  const [config, setConfigState] = useState<ModelConfig>(DEFAULT_MODEL_CONFIG);
+  const configRef = useRef<ModelConfig>(DEFAULT_MODEL_CONFIG);
+
+  const syncConfig = useCallback((next: ModelConfig) => {
+    configRef.current = next;
+    setConfigState(next);
+    if (!characterId) return;
+    const saved = saveModelConfig(characterId, next);
+    notifyModelConfigUpdated(characterId, saved);
+  }, [characterId]);
 
   useEffect(() => {
-    if (!characterId) return;
-    const saved = loadConfig(characterId);
-    Object.entries(saved).forEach(([key, value]) => {
-      dispatch({ type: "SET", key: key as keyof ModelConfig, value });
-    });
+    const loaded = loadModelConfig(characterId);
+    configRef.current = loaded;
+    setConfigState(loaded);
   }, [characterId]);
 
   const set = useCallback((key: keyof ModelConfig, value: string | number) => {
-    dispatch({ type: "SET", key, value });
-    if (characterId) saveConfig(characterId, { ...config, [key]: value });
-  }, [characterId, config]);
+    const next = sanitizeModelConfig({ ...configRef.current, [key]: value });
+    syncConfig(next);
+  }, [syncConfig]);
 
   const reset = useCallback(() => {
-    dispatch({ type: "RESET" });
-    if (characterId) saveConfig(characterId, CONFIG_DEFAULTS);
-  }, [characterId]);
+    syncConfig(DEFAULT_MODEL_CONFIG);
+  }, [syncConfig]);
 
   return { config, set, reset };
 }
 
 // ─── Rail Toggle Hook ──────────────────────────────────────────────────────────
 
-const TOGGLE_EVENT = "chatty:toggle-model-rail";
 const STORAGE_KEY = "chatty:model-rail-open";
 const MEMORY_UPDATED_EVENT = "chatty:memory-updated";
 
@@ -86,17 +65,44 @@ function useModelRailOpen() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "true") setIsOpen(true);
+    if (typeof window === "undefined") return;
 
-    const handle = () =>
+    const isMobileViewport = () => window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches;
+
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === "true") {
+      setIsOpen(true);
+      if (isMobileViewport()) {
+        window.dispatchEvent(new CustomEvent<PanelSetDetail>(SET_SIDEBAR_EVENT, { detail: { open: false } }));
+      }
+    }
+
+    const handleToggle = () =>
       setIsOpen((prev) => {
         const next = !prev;
         localStorage.setItem(STORAGE_KEY, String(next));
+        if (next && isMobileViewport()) {
+          window.dispatchEvent(new CustomEvent<PanelSetDetail>(SET_SIDEBAR_EVENT, { detail: { open: false } }));
+        }
         return next;
       });
-    window.addEventListener(TOGGLE_EVENT, handle);
-    return () => window.removeEventListener(TOGGLE_EVENT, handle);
+
+    const handleSet = (event: Event) => {
+      const customEvent = event as CustomEvent<PanelSetDetail>;
+      const open = Boolean(customEvent.detail?.open);
+      localStorage.setItem(STORAGE_KEY, String(open));
+      if (open && isMobileViewport()) {
+        window.dispatchEvent(new CustomEvent<PanelSetDetail>(SET_SIDEBAR_EVENT, { detail: { open: false } }));
+      }
+      setIsOpen(open);
+    };
+
+    window.addEventListener(TOGGLE_MODEL_RAIL_EVENT, handleToggle);
+    window.addEventListener(SET_MODEL_RAIL_EVENT, handleSet);
+    return () => {
+      window.removeEventListener(TOGGLE_MODEL_RAIL_EVENT, handleToggle);
+      window.removeEventListener(SET_MODEL_RAIL_EVENT, handleSet);
+    };
   }, []);
 
   return isOpen;
@@ -906,54 +912,96 @@ export function ModelRail() {
 
   if (!characterId) return null;
 
-  const panelStyle = {
-    width: isOpen ? "var(--model-rail-width)" : 0,
-    opacity: isOpen ? 1 : 0,
-    borderLeftWidth: isOpen ? 1 : 0,
-    overflow: "hidden" as const,
+  const closeRail = () => {
+    window.dispatchEvent(new CustomEvent<PanelSetDetail>(SET_MODEL_RAIL_EVENT, { detail: { open: false } }));
   };
 
+  const panelClassName = `${styles.rail} ${isOpen ? styles.railOpen : styles.railClosed}`;
+
   return (
-    <aside className={styles.rail} style={panelStyle} aria-label="Model Settings">
-      <header className={styles.header}>
-        <span className={styles.headerTitle}>Config & Memory</span>
-        <button className={styles.resetBtn} onClick={reset} title="Reset to defaults">Reset Local</button>
-      </header>
+    <>
+      <div
+        className={`${styles.mobileBackdrop} ${isOpen ? styles.mobileBackdropVisible : ""}`}
+        onClick={closeRail}
+        aria-hidden={!isOpen}
+      />
+      <aside className={panelClassName} aria-label="Model Settings">
+        <header className={styles.header}>
+          <span className={styles.headerTitle}>Config & Memory</span>
+          <button className={styles.resetBtn} onClick={reset} title="Reset to defaults">Reset Local</button>
+        </header>
 
-      <div className={styles.scroller}>
-        <CollapsibleSection title="Global API Connection" defaultOpen={false}>
-          <GlobalApiSettings />
-        </CollapsibleSection>
+        <div className={styles.scroller}>
+          <CollapsibleSection title="Global API Connection" defaultOpen={false}>
+            <GlobalApiSettings />
+          </CollapsibleSection>
 
-        <MemorySection characterId={characterId} conversationId={conversationId} />
+          <MemorySection characterId={characterId} conversationId={conversationId} />
 
-        <CollapsibleSection title="System Prompt Override">
-          <textarea
-            className={styles.textarea}
-            placeholder="Prepend custom instructions for this session…"
-            rows={4}
-            value={config.systemPromptOverride}
-            onChange={(e) => set("systemPromptOverride", e.target.value)}
-          />
-        </CollapsibleSection>
+          <CollapsibleSection title="System Prompt Override">
+            <textarea
+              className={styles.textarea}
+              placeholder="Prepend custom instructions for this session…"
+              rows={4}
+              value={config.systemPromptOverride}
+              onChange={(e) => set("systemPromptOverride", e.target.value)}
+            />
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Local Sampling Rules">
-          <SliderRow label="Temperature" value={config.temperature} min={0} max={2} step={0.05} onChange={(v) => set("temperature", v)} />
-          <SliderRow label="Top-P" value={config.topP} min={0} max={1} step={0.05} onChange={(v) => set("topP", v)} />
-          <SliderRow label="Max Tokens" value={config.maxTokens} min={128} max={4096} step={64} onChange={(v) => set("maxTokens", v)} />
-          <SliderRow label="Rep. Penalty" value={config.repPenalty} min={1.0} max={1.5} step={0.01} onChange={(v) => set("repPenalty", v)} />
-        </CollapsibleSection>
+          <CollapsibleSection title="Local Sampling Rules">
+            <SliderRow
+              label="Temperature"
+              value={config.temperature}
+              min={MODEL_CONFIG_LIMITS.temperature.min}
+              max={MODEL_CONFIG_LIMITS.temperature.max}
+              step={MODEL_CONFIG_LIMITS.temperature.step}
+              onChange={(v) => set("temperature", v)}
+            />
+            <SliderRow
+              label="Top-P"
+              value={config.topP}
+              min={MODEL_CONFIG_LIMITS.topP.min}
+              max={MODEL_CONFIG_LIMITS.topP.max}
+              step={MODEL_CONFIG_LIMITS.topP.step}
+              onChange={(v) => set("topP", v)}
+            />
+            <SliderRow
+              label="Max Tokens"
+              value={config.maxTokens}
+              min={MODEL_CONFIG_LIMITS.maxTokens.min}
+              max={MODEL_CONFIG_LIMITS.maxTokens.max}
+              step={MODEL_CONFIG_LIMITS.maxTokens.step}
+              onChange={(v) => set("maxTokens", v)}
+            />
+            <SliderRow
+              label="Frequency Penalty"
+              value={config.frequencyPenalty}
+              min={MODEL_CONFIG_LIMITS.frequencyPenalty.min}
+              max={MODEL_CONFIG_LIMITS.frequencyPenalty.max}
+              step={MODEL_CONFIG_LIMITS.frequencyPenalty.step}
+              onChange={(v) => set("frequencyPenalty", v)}
+            />
+            <SliderRow
+              label="Presence Penalty"
+              value={config.presencePenalty}
+              min={MODEL_CONFIG_LIMITS.presencePenalty.min}
+              max={MODEL_CONFIG_LIMITS.presencePenalty.max}
+              step={MODEL_CONFIG_LIMITS.presencePenalty.step}
+              onChange={(v) => set("presencePenalty", v)}
+            />
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Negative Prompt">
-          <textarea
-            className={styles.textarea}
-            placeholder="Describe what the model should avoid…"
-            rows={3}
-            value={config.negativePrompt}
-            onChange={(e) => set("negativePrompt", e.target.value)}
-          />
-        </CollapsibleSection>
-      </div>
-    </aside>
+          <CollapsibleSection title="Negative Prompt">
+            <textarea
+              className={styles.textarea}
+              placeholder="Describe what the model should avoid…"
+              rows={3}
+              value={config.negativePrompt}
+              onChange={(e) => set("negativePrompt", e.target.value)}
+            />
+          </CollapsibleSection>
+        </div>
+      </aside>
+    </>
   );
 }

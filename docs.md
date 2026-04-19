@@ -414,3 +414,159 @@
 - `apps/api/src/services/tkg-prompts.ts`
 - `apps/api/src/routes/chat.ts`
 - `apps/web/src/components/Layout/ModelRail.tsx`
+
+---
+
+## Model Parameter Pipeline Hardening (Rail -> Payload -> LLM)
+
+**Date:** 2026-04-19
+
+**Decision:** Reworked model-parameter handling so rail controls are first-class runtime inputs (not decorative), propagate immediately to chat requests, and are mapped to actual provider options used by `streamText`.
+
+**Status:** Implemented
+
+**Problem Signal:**
+- Parameter controls in right rail could appear to change but not reliably affect live generation.
+- Sampling config persistence had stale-state risk during rapid slider updates.
+- Existing penalty control was semantically ambiguous (`repPenalty`) and lacked complete provider coverage.
+
+**Implemented Frontend Changes:**
+1. Introduced shared model-config module in `apps/web/src/lib/model-config.ts`:
+   - canonical defaults
+   - numeric limits and clamping
+   - storage helpers
+   - migration handling from legacy `repPenalty`
+   - model-config update event (`chatty:model-config-updated`)
+2. Refactored `ModelRail` local config state to avoid stale closure writes:
+   - state + ref synchronization
+   - sanitized writes on every update
+   - explicit runtime notification to active chat hook
+3. Expanded sampling controls to full, explicit knobs:
+   - `temperature`
+   - `topP`
+   - `maxTokens`
+   - `frequencyPenalty`
+   - `presencePenalty`
+4. Updated `useChat` request assembly:
+   - subscribes to model-config updates
+   - uses latest config via ref at send-time
+   - always includes numeric sampling values in outbound message payload
+
+**Implemented Backend Changes:**
+1. Extended chat route request schema to accept:
+   - `frequencyPenalty`
+   - `presencePenalty`
+   - retained `repPenalty` as backward-compatible alias
+2. Updated stream option assembly to map payload parameters directly to provider options:
+   - `frequencyPenalty` (or legacy `repPenalty` fallback)
+   - `presencePenalty`
+3. Enhanced LLM stream init logs with full sampling fields for observability.
+
+**Why this is better:**
+- Eliminates UI-only/decorative parameter behavior.
+- Removes stale localStorage write patterns that can silently drop user choices.
+- Aligns frontend terms with actual provider controls and preserves backward compatibility.
+- Improves traceability: logs now reflect the exact generation knobs passed to the model.
+
+**Validation:**
+- `bunx tsc --noEmit -p apps/web/tsconfig.json`
+- `bunx tsc --noEmit -p apps/api/tsconfig.json`
+
+**Related Files:**
+- `apps/web/src/lib/model-config.ts`
+- `apps/web/src/hooks/useChat.ts`
+- `apps/web/src/components/Layout/ModelRail.tsx`
+- `apps/web/src/lib/types.ts`
+- `apps/web/src/lib/api.ts`
+- `apps/api/src/routes/chat.ts`
+
+---
+
+## Mobile Tri-Rail Interaction Fix (Sidebar/Rail Collision)
+
+**Date:** 2026-04-20
+
+**Decision:** Refactored mobile panel behavior so context sidebar and model rail behave as mutually exclusive overlays with independent backdrops, preventing toggle button dead-zones and blocked collapse actions.
+
+**Status:** Implemented
+
+**Problem Signal:**
+- On mobile, opening both side panels could block header controls.
+- Users could reach a state where collapse buttons were visually present but not clickable due to panel overlap and z-index conflicts.
+
+**Implemented Changes:**
+1. Added shared layout event contract in `apps/web/src/lib/layout-events.ts`:
+   - `toggle` and explicit `set` events for both sidebar and model rail
+   - shared mobile media-query constant
+2. Updated sidebar state management in `apps/web/src/hooks/useLayout.ts`:
+   - supports explicit open/close events
+   - auto-closes model rail when opening sidebar on mobile
+3. Updated model rail state management in `apps/web/src/components/Layout/ModelRail.tsx`:
+   - supports explicit open/close events
+   - auto-closes context sidebar when opening model rail on mobile
+4. Converted side panels from inline width/opacity styles to class-driven open/closed states:
+   - `ContextSidebar` + `HomeSidebar` + `CharacterSidebar`
+   - `ModelRail`
+5. Added mobile backdrops for both panels with deterministic layering:
+   - tap outside closes active panel
+   - hidden panel has `pointer-events: none`
+6. Unified mobile rail width via root CSS variable and server-rail sizing:
+   - avoids hard-coded width drift between rail and overlay offsets
+7. Applied small mobile header/content spacing fixes for chat/home screens.
+
+**Why this is better:**
+- Eliminates panel overlap deadlocks by design (single active side overlay on mobile).
+- Prevents invisible layer interception through strict pointer-event gating.
+- Makes panel behavior explicit and debuggable via shared event semantics.
+
+**Validation:**
+- `bunx tsc --noEmit -p apps/web/tsconfig.json`
+
+**Related Files:**
+- `apps/web/src/lib/layout-events.ts`
+- `apps/web/src/hooks/useLayout.ts`
+- `apps/web/src/components/Layout/ContextSidebar.tsx`
+- `apps/web/src/components/Layout/HomeSidebar.tsx`
+- `apps/web/src/components/Layout/CharacterSidebar.tsx`
+- `apps/web/src/components/Layout/ContextSidebar.module.css`
+- `apps/web/src/components/Layout/ModelRail.tsx`
+- `apps/web/src/components/Layout/ModelRail.module.css`
+- `apps/web/src/components/Layout/ServerRail.module.css`
+- `apps/web/src/app/globals.css`
+- `apps/web/src/components/CharacterHeader.tsx`
+- `apps/web/src/components/CharacterHeader.module.css`
+- `apps/web/src/app/chat/chat.module.css`
+- `apps/web/src/app/home/home.module.css`
+
+---
+
+## Legacy repPenalty Migration Correction
+
+**Date:** 2026-04-20
+
+**Decision:** Adjusted legacy config migration so old default `repPenalty: 1.1` is treated as unset when mapping to new `frequencyPenalty`.
+
+**Status:** Implemented
+
+**Problem Signal:**
+- Previous migration mapped `repPenalty` directly into `frequencyPenalty`.
+- Old UI persisted default `repPenalty: 1.1` in storage even when users never changed it.
+- Result: some users were unintentionally migrated to non-zero `frequencyPenalty`.
+
+**Fix Applied:**
+1. Added legacy migration guard in `model-config.ts`:
+   - if explicit `frequencyPenalty` exists, it wins
+   - else legacy `repPenalty` only migrates when it differs from legacy default `1.1`
+   - legacy default now falls back to new default `frequencyPenalty: 0`
+2. Added epsilon-based comparison for float safety around the legacy default value.
+
+**Why this is better:**
+- Prevents silent behavior changes for users who never customized penalty.
+- Preserves intentional custom legacy values.
+- Maintains forward compatibility with explicit new-format config.
+
+**Validation:**
+- `bunx tsc --noEmit -p apps/web/tsconfig.json`
+
+**Related Files:**
+- `apps/web/src/lib/model-config.ts`
