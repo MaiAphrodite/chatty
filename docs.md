@@ -335,3 +335,48 @@
 - `apps/api/src/index.ts`
 - `Dockerfile`
 - `docker-compose.yml`
+
+---
+
+## Hotfix: Summary Date Binding + Supervisor Log Permissions
+
+**Date:** 2026-04-19
+
+**Decision:** Fixed two production regressions: (1) postgres Date parameter binding crash in summary editor state queries, and (2) supervisor startup permission failures under non-root runtime.
+
+**Status:** Implemented
+
+**Incident Symptoms:**
+- `Auto summarize complete` followed by `SUMMARY_EDITOR_STATE_FAILED`.
+- Runtime error from postgres client: `ERR_INVALID_ARG_TYPE` when binding `Date` values.
+- Container startup failure with `PermissionError` for `/var/log/supervisord.log` under non-root setup.
+
+**Root Causes:**
+1. Raw `Date` objects were injected into SQL template bindings in summary-state query helpers; postgres client expected string/buffer-serializable input in this path.
+2. Supervisor main logfile path was not writable with the non-root runtime configuration in deployed environments.
+
+**Fixes Applied:**
+1. `tkg.ts`
+   - Converted summary timestamp SQL bindings to ISO strings:
+     - `options.after.toISOString()`
+     - `sinceDate.toISOString()`
+   - Preserved safe timestamp normalization and recovery behavior.
+2. `supervisord.conf`
+   - Switched supervisor logfile target away from `/var/log/...` to writable runtime paths.
+   - Kept process-level non-root execution intent while preventing logger path permission crashes.
+3. `.github/workflows/ci.yml`
+   - Updated deployment compose template to include explicit runtime/user/env alignment for logger auth and startup behavior.
+
+**Validation:**
+- `bunx tsc --noEmit -p apps/api/tsconfig.json`
+- `bunx tsc --noEmit -p apps/web/tsconfig.json`
+- Docker image build succeeded with hotfix content.
+- Production hot-patch verification:
+  - API health endpoint returned `200`.
+  - Logger dashboard auth endpoint returned `200` with credentials.
+  - No recurrence of `SUMMARY_EDITOR_STATE_FAILED` or Date bind type error in recent logs.
+
+**Related Files:**
+- `apps/api/src/services/tkg.ts`
+- `supervisord.conf`
+- `.github/workflows/ci.yml`
