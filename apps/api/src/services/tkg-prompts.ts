@@ -61,3 +61,36 @@ export function buildIncrementalSummarizationUserPrompt(
     .map((fact, index) => `${index + 1}. ${fact}`)
     .join("\n")}\n\nReturn an updated single paragraph summary.`;
 }
+
+export const CONVERSATION_SUMMARIZATION_PROMPT = `You are a memory compression engine.
+
+Given a rolling conversation transcript, write a concise long-term memory summary focused on durable user-relevant details (identity, relationships, preferences, constraints, goals, ongoing situations, and explicit corrections).
+
+Rules:
+- Preserve concrete details (names, places, dates, preferences, relationship context) when present.
+- Prefer current facts when the transcript contains corrections.
+- Do not include transient chit-chat or stylistic filler.
+- Do not invent facts.
+- Write in second person.
+- Return a single paragraph.`;
+
+export function buildConversationSummarizationUserPrompt(transcript: string): string {
+  return `Conversation transcript (rolling window):\n${transcript}\n\nCompress this into a single long-term memory paragraph.`;
+}
+
+export const INCREMENTAL_CONVERSATION_SUMMARIZATION_PROMPT = `You update an existing long-term memory summary using new conversation messages.
+
+Rules:
+- Keep valid durable details from the prior summary.
+- Integrate new reliable details from recent messages.
+- If recent messages contradict prior summary, prefer recent messages.
+- Do not invent facts.
+- Write in second person.
+- Return a single paragraph.`;
+
+export function buildIncrementalConversationSummarizationUserPrompt(
+  currentSummary: string,
+  transcript: string,
+): string {
+  return `Current long-term summary:\n${currentSummary}\n\nRecent conversation messages:\n${transcript}\n\nReturn the updated single paragraph summary.`;
+}

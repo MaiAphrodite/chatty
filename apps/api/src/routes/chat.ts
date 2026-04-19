@@ -16,7 +16,7 @@ import {
   getMemorySummaries,
   getSummaryEditorState,
   saveManualSummary,
-  autoSummarizeMemory,
+  autoSummarizeRollingWindow,
   addManualFact,
   updateMemoryFact,
   deleteMemoryFact,
@@ -566,7 +566,7 @@ export const chatRoutes = new Elysia({ prefix: "/chat" })
     async ({ params, userId, body, set, scopedConversation }) => {
       const conv = ensureConversationExists(scopedConversation, set, { message: "Conversation not found" });
       if ("message" in conv) return conv;
-      return autoSummarizeMemory(conv.characterId, params.id, userId!, body.mode);
+      return autoSummarizeRollingWindow(conv.characterId, params.id, userId!, body.mode);
     },
     {
       params: t.Object({ id: t.String({ format: "uuid" }) }),

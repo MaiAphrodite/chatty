@@ -13,6 +13,10 @@ import {
   buildSummarizationUserPrompt,
   INCREMENTAL_SUMMARIZATION_PROMPT,
   buildIncrementalSummarizationUserPrompt,
+  CONVERSATION_SUMMARIZATION_PROMPT,
+  buildConversationSummarizationUserPrompt,
+  INCREMENTAL_CONVERSATION_SUMMARIZATION_PROMPT,
+  buildIncrementalConversationSummarizationUserPrompt,
 } from "./tkg-prompts";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
@@ -1132,6 +1136,74 @@ async function executeSummarizationLlm(userId: string, facts: string[]): Promise
   return result.text;
 }
 
+type ConversationMessageRow = {
+  role: string;
+  content: string;
+  createdAt: Date;
+};
+
+function formatConversationTranscript(messagesRows: ConversationMessageRow[]): string {
+  return messagesRows
+    .map((messageRow) => `[${messageRow.role}] ${messageRow.content}`)
+    .join("\n");
+}
+
+async function loadConversationMessages(
+  conversationId: string,
+  limitCount: number,
+  after?: Date,
+): Promise<ConversationMessageRow[]> {
+  const baseFilter = eq(messages.conversationId, conversationId);
+  const whereClause = after
+    ? and(baseFilter, sql`${messages.createdAt} > ${after.toISOString()}`)
+    : baseFilter;
+
+  return db.query.messages.findMany({
+    where: whereClause,
+    orderBy: (m) => desc(m.createdAt),
+    limit: limitCount,
+    columns: { role: true, content: true, createdAt: true },
+  }).then((rows) => rows.reverse() as ConversationMessageRow[]);
+}
+
+async function executeConversationSummarizationLlm(userId: string, transcript: string): Promise<string> {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { llmEndpoint: true, llmApiKey: true, llmModel: true },
+  });
+  const { baseUrl, apiKey, modelId } = resolveProviderConfig(user);
+  const provider = createOpenAI({ baseURL: baseUrl, apiKey, compatibility: "compatible" });
+  const result = await generateText({
+    model: provider(modelId),
+    system: CONVERSATION_SUMMARIZATION_PROMPT,
+    prompt: buildConversationSummarizationUserPrompt(transcript),
+    maxTokens: 700,
+    temperature: 0.2,
+  });
+  return result.text;
+}
+
+async function executeIncrementalConversationSummarizationLlm(
+  userId: string,
+  currentSummary: string,
+  transcript: string,
+): Promise<string> {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { llmEndpoint: true, llmApiKey: true, llmModel: true },
+  });
+  const { baseUrl, apiKey, modelId } = resolveProviderConfig(user);
+  const provider = createOpenAI({ baseURL: baseUrl, apiKey, compatibility: "compatible" });
+  const result = await generateText({
+    model: provider(modelId),
+    system: INCREMENTAL_CONVERSATION_SUMMARIZATION_PROMPT,
+    prompt: buildIncrementalConversationSummarizationUserPrompt(currentSummary, transcript),
+    maxTokens: 700,
+    temperature: 0.2,
+  });
+  return result.text;
+}
+
 async function saveSummaryConfig(charId: string, conversationId: string, userId: string, summary: string, count: number) {
   await db.insert(tkgSummaries)
     .values({ characterId: charId, conversationId, userId, summary, factCount: count })
@@ -1179,6 +1251,95 @@ export async function forceSummarize(characterId: string, conversationId: string
   await saveSummaryConfig(characterId, conversationId, userId, text, edges.length);
   Logger.info("TKG", "Manual summarize complete");
   return { factCount: edges.length };
+}
+
+const ROLLING_WINDOW_MESSAGE_LIMIT = 60;
+
+async function loadRollingConversationTranscript(conversationId: string): Promise<string | null> {
+  const rows = await loadConversationMessages(conversationId, ROLLING_WINDOW_MESSAGE_LIMIT);
+  if (rows.length === 0) return null;
+  return formatConversationTranscript(rows);
+}
+
+async function loadRollingDeltaTranscript(
+  conversationId: string,
+  updatedAt: Date | string | number | null,
+): Promise<string | null> {
+  const anchorDate = normalizeTimestamp(updatedAt);
+  if (!anchorDate) return null;
+  const rows = await loadConversationMessages(conversationId, ROLLING_WINDOW_MESSAGE_LIMIT, anchorDate);
+  if (rows.length === 0) return null;
+  return formatConversationTranscript(rows);
+}
+
+function hasUsableSummary(summaryRow: { summary: string } | null): boolean {
+  return Boolean(summaryRow?.summary.trim());
+}
+
+function asExistingSummary(
+  summaryRow: { summary: string; updatedAt: Date | string | number | null } | null | undefined,
+): { summary: string; updatedAt: Date | string | number | null } | null {
+  return summaryRow ?? null;
+}
+
+async function summarizeRollingWindowFull(conversationId: string, userId: string): Promise<string | null> {
+  const transcript = await loadRollingConversationTranscript(conversationId);
+  if (!transcript) return null;
+  return executeConversationSummarizationLlm(userId, transcript);
+}
+
+async function summarizeRollingWindowDelta(
+  conversationId: string,
+  userId: string,
+  currentSummary: string,
+  updatedAt: Date | string | number | null,
+): Promise<string | null> {
+  const transcript = await loadRollingDeltaTranscript(conversationId, updatedAt);
+  if (!transcript) return null;
+  return executeIncrementalConversationSummarizationLlm(userId, currentSummary, transcript);
+}
+
+export async function autoSummarizeRollingWindow(
+  characterId: string,
+  conversationId: string,
+  userId: string,
+  mode: SummaryMode,
+): Promise<SummaryEditorState> {
+  const summaryRow = asExistingSummary(await findSummaryRow(characterId, conversationId, userId));
+
+  let summaryText: string | null = null;
+  if (mode === "delta" && hasUsableSummary(summaryRow)) {
+    summaryText = await summarizeRollingWindowDelta(
+      conversationId,
+      userId,
+      summaryRow!.summary,
+      summaryRow!.updatedAt,
+    );
+  } else {
+    summaryText = await summarizeRollingWindowFull(conversationId, userId);
+  }
+
+  if (!summaryText?.trim()) {
+    Logger.warn("TKG", "Rolling summarize triggered but no message transcript available", {
+      characterId,
+      conversationId,
+      mode,
+    });
+    return getSummaryEditorState(characterId, conversationId, userId);
+  }
+
+  const currentFactCount = await fetchActiveCharacterEdges(characterId, conversationId, userId)
+    .then((edges) => edges.length);
+  await saveSummaryConfig(characterId, conversationId, userId, summaryText.trim(), currentFactCount);
+
+  Logger.info("TKG", "Rolling window summarize complete", {
+    characterId,
+    conversationId,
+    mode,
+    messageWindow: ROLLING_WINDOW_MESSAGE_LIMIT,
+  });
+
+  return getSummaryEditorState(characterId, conversationId, userId);
 }
 
 // ─── Memory Display & Manual CRUD ─────────────────────────────────────────────
