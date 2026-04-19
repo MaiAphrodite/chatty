@@ -30,6 +30,9 @@ type LegacyModelConfig = Partial<ModelConfig> & {
   repPenalty?: unknown;
 };
 
+const LEGACY_REP_PENALTY_DEFAULT = 1.1;
+const LEGACY_REP_PENALTY_EPSILON = 0.000001;
+
 function modelNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
@@ -42,13 +45,27 @@ function modelText(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function resolveFrequencyPenaltySource(candidate: LegacyModelConfig): number | undefined {
+  if (typeof candidate.frequencyPenalty === "number" && Number.isFinite(candidate.frequencyPenalty)) {
+    return candidate.frequencyPenalty;
+  }
+
+  if (typeof candidate.repPenalty !== "number" || !Number.isFinite(candidate.repPenalty)) {
+    return undefined;
+  }
+
+  const isLegacyDefault =
+    Math.abs(candidate.repPenalty - LEGACY_REP_PENALTY_DEFAULT) <= LEGACY_REP_PENALTY_EPSILON;
+  return isLegacyDefault ? undefined : candidate.repPenalty;
+}
+
 export function modelConfigStorageKey(characterId: string): string {
   return `${MODEL_CONFIG_STORAGE_PREFIX}${characterId}`;
 }
 
 export function sanitizeModelConfig(raw: LegacyModelConfig | null | undefined): ModelConfig {
   const candidate = raw ?? {};
-  const frequencyPenaltySource = candidate.frequencyPenalty ?? candidate.repPenalty;
+  const frequencyPenaltySource = resolveFrequencyPenaltySource(candidate);
 
   return {
     systemPromptOverride: modelText(candidate.systemPromptOverride),

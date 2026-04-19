@@ -537,3 +537,36 @@
 - `apps/web/src/components/CharacterHeader.module.css`
 - `apps/web/src/app/chat/chat.module.css`
 - `apps/web/src/app/home/home.module.css`
+
+---
+
+## Legacy repPenalty Migration Correction
+
+**Date:** 2026-04-20
+
+**Decision:** Adjusted legacy config migration so old default `repPenalty: 1.1` is treated as unset when mapping to new `frequencyPenalty`.
+
+**Status:** Implemented
+
+**Problem Signal:**
+- Previous migration mapped `repPenalty` directly into `frequencyPenalty`.
+- Old UI persisted default `repPenalty: 1.1` in storage even when users never changed it.
+- Result: some users were unintentionally migrated to non-zero `frequencyPenalty`.
+
+**Fix Applied:**
+1. Added legacy migration guard in `model-config.ts`:
+   - if explicit `frequencyPenalty` exists, it wins
+   - else legacy `repPenalty` only migrates when it differs from legacy default `1.1`
+   - legacy default now falls back to new default `frequencyPenalty: 0`
+2. Added epsilon-based comparison for float safety around the legacy default value.
+
+**Why this is better:**
+- Prevents silent behavior changes for users who never customized penalty.
+- Preserves intentional custom legacy values.
+- Maintains forward compatibility with explicit new-format config.
+
+**Validation:**
+- `bunx tsc --noEmit -p apps/web/tsconfig.json`
+
+**Related Files:**
+- `apps/web/src/lib/model-config.ts`
