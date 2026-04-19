@@ -244,6 +244,8 @@ export const api = {
       temperature?: number;
       topP?: number;
       maxTokens?: number;
+      frequencyPenalty?: number;
+      presencePenalty?: number;
       repPenalty?: number;
       systemPrompt?: string;
       negativePrompt?: string;

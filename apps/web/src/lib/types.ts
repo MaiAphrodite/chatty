@@ -70,7 +70,8 @@ export type ModelConfig = {
   temperature: number;
   topP: number;
   maxTokens: number;
-  repPenalty: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
   negativePrompt: string;
 };
 

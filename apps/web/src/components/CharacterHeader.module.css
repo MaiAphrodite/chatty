@@ -75,3 +75,28 @@
   align-items: center;
   gap: 4px;
 }
+
+@media (max-width: 767px) {
+  .header {
+    padding: 0 10px;
+  }
+
+  .identity {
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .name {
+    font-size: 0.9375rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 38vw;
+  }
+
+  .actions {
+    gap: 2px;
+    flex-shrink: 0;
+  }
+}

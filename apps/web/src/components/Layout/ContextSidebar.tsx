@@ -9,15 +9,16 @@ import { CharacterSidebar } from "./CharacterSidebar";
 export function ContextSidebar() {
   const { user } = useAuth();
   const params = useParams();
-  const { isSidebarOpen } = useLayout();
+  const { isSidebarOpen, setSidebarOpen } = useLayout();
 
   if (!user) return null;
 
   const characterId = params?.characterId as string | undefined;
+  const requestClose = () => setSidebarOpen(false);
 
   if (!characterId) {
-    return <HomeSidebar isSidebarOpen={isSidebarOpen} />;
+    return <HomeSidebar isSidebarOpen={isSidebarOpen} onRequestClose={requestClose} />;
   }
 
-  return <CharacterSidebar characterId={characterId} isSidebarOpen={isSidebarOpen} />;
+  return <CharacterSidebar characterId={characterId} isSidebarOpen={isSidebarOpen} onRequestClose={requestClose} />;
 }

@@ -154,5 +154,11 @@
 
 /* ── Mobile (Fallback logic) ── */
 @media (max-width: 767px) {
-  /* No margin adjustments needed in true flexbox, we just hide sidebars via CSS later if necessary */
+  .messages {
+    padding-top: 10px;
+  }
+
+  .errorBar {
+    padding: 8px 10px;
+  }
 }

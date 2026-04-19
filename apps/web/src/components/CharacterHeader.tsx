@@ -3,11 +3,10 @@
 import type { Character } from "../lib/types";
 import { CharacterMenu } from "./CharacterMenu";
 import { useLayout } from "../hooks/useLayout";
+import { TOGGLE_MODEL_RAIL_EVENT } from "../lib/layout-events";
 import styles from "./CharacterHeader.module.css";
 
 import { HamburgerIcon, SlidersIcon } from "./ui/Icons";
-
-const MODEL_RAIL_EVENT = "chatty:toggle-model-rail";
 
 type CharacterHeaderProps = { character: Character | null };
 
@@ -16,7 +15,7 @@ export function CharacterHeader({ character }: CharacterHeaderProps) {
 
   if (!character) return null;
 
-  const toggleModelRail = () => window.dispatchEvent(new Event(MODEL_RAIL_EVENT));
+  const toggleModelRail = () => window.dispatchEvent(new Event(TOGGLE_MODEL_RAIL_EVENT));
 
   return (
     <header className={styles.header}>
