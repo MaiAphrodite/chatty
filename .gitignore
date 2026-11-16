@@ -1,3 +1,9 @@
 node_modules
 AGENTS.md
 docs.md
+
+# Next.js build output
+.next/
+
+# TypeScript incremental build info
+*.tsbuildinfo
