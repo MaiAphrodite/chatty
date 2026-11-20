@@ -12,7 +12,7 @@ Chatty is a chat app for characters you write yourself: give one a system prompt
 
 - **Character editor.** Name, description, avatar, system prompt, first message, example dialogue, and a public or private flag. Accounts see their own work under `GET /characters/mine`.
 - **Streamed replies.** `POST /chat/conversations/:id/messages` returns an SSE stream, and the Next.js handler at `apps/web/src/app/api/chat/conversations/[id]/messages/route.ts` proxies it so the browser stays same-origin.
-- **Any OpenAI-compatible endpoint.** Base URL, model id, and API key per account, with a connection test that lists the models the endpoint reports. Accounts without their own settings fall back to `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_API_KEY`.
+- **Any OpenAI-compatible endpoint.** Base URL, model id, and API key per account, with a connection test that lists the models the endpoint reports. Hosted gateways such as Demon Route (`https://api.demonroute.com/v1`) work the same way as a local LM Studio or Ollama server. Accounts without their own settings fall back to `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_API_KEY`.
 - **Keys encrypted at rest.** Stored API keys are sealed with AES-256-GCM under `ENCRYPTION_KEY` before they reach the database.
 - **Memory graph.** Entities, relations, and rolling summaries in `tkg_entities`, `tkg_edges`, and `tkg_summaries`, with a `manual` or `auto` mode per character and an editor for individual facts and summaries.
 - **Remember a message.** `POST /chat/messages/:id/remember` sends a window around one message through extraction and files the result into the graph.
