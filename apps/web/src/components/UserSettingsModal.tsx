@@ -154,6 +154,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             <span className={styles.hint}>
               Any OpenAI-compatible endpoint. Examples: <code>https://api.x.ai/v1</code> (xAI),
               {" "}<code>https://api.openai.com/v1</code>,
+              {" "}<code>https://api.demonroute.com/v1</code> (Demon Route),
               {" "}<code>http://localhost:1234/v1</code> (LM Studio),
               {" "}<code>http://localhost:11434/v1</code> (Ollama)
             </span>
